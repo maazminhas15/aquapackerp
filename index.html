@@ -1994,7 +1994,7 @@ const Ledger = {
         tx.slice().reverse().map(t =>
           '<tr><td>' + fmtDate(t.date) + '</td>' +
           '<td>' + (t.kind === 'pay' ? '<span class="bdg paid">✓ payment</span> ' : '') + esc(t.desc) +
-            (t.key && settle[t.key] ? (settle[t.key].status === 'paid' ? ' <span class="bdg paid" style="font-size:10px">✓ paid</span>' : settle[t.key].status === 'partial' ? ' <span class="bdg partial" style="font-size:10px">part-paid</span>' : ' <span class="bdg unpaid" style="font-size:10px">pending</span>') : '') + '</td>' +
+            (t.key && settle[t.key] && (settle[t.key].status === 'unpaid' || settle[t.key].status === 'partial') ? (settle[t.key].status === 'partial' ? ' <span class="bdg partial" style="font-size:10px">part-paid</span>' : ' <span class="bdg unpaid" style="font-size:10px">pending</span>') : '') + '</td>' +
           '<td class="r-money num">' + (t.charge ? pkr(t.charge) : '—') + '</td>' +
           '<td class="r-money num money-pos">' + (t.paid ? pkr(t.paid) : '—') + '</td>' +
           '<td class="r-money num ' + (t.run > 0 ? 'money-bal' : 'money-pos') + '"><b>' + pkr(t.run) + '</b></td>' +
