@@ -1065,6 +1065,38 @@ function monthlyBook(id) {
   return { receivables: recv, invoices: invs, unbilled, overdue, accruing, advance, overdueSince };
 }
 
+// How much a client still owes FROM a specific calendar month (m = 'YYYY-MM'), + bottles on those unpaid charges.
+// Payments clear the OLDEST charges first, so a later payment that cleared an earlier month makes that month drop off.
+function monthOwe(id, m) {
+  const c = getClient(id); if (!c) return { owed: 0, bottles: 0, since: null };
+  const charges = [];
+  if (num(c.opening) > 0) charges.push({ date: c.createdAt || '2000-01-01', amt: num(c.opening), qty: 0 });
+  state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id) charges.push({ date: r.date, amt: num(row.total) - num(row.received), qty: num(row.qty) }); }));
+  state.fillings.forEach(f => { if (f.clientId === id) charges.push({ date: f.date, amt: fillTotal(f) - fillRecv(f), qty: num(f.qty) }); });
+  charges.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  let pool = state.payments.filter(p => p.clientId === id).reduce((s, p) => s + num(p.amount), 0);
+  let owed = 0, bottles = 0, since = null;
+  charges.forEach(ch => {
+    let rem = ch.amt;
+    if (pool > 0 && rem > 0) { const take = Math.min(pool, rem); pool -= take; rem -= take; }
+    if (rem > 0.5 && ch.date && ch.date.slice(0, 7) === m) { owed += rem; bottles += ch.qty; if (!since) since = ch.date; }
+  });
+  return { owed: Math.round(owed), bottles, since };
+}
+// Total still-unpaid amount + bottles for a client across all time (payments clear oldest first).
+function unpaidTotals(id) {
+  const c = getClient(id); if (!c) return { owed: 0, bottles: 0 };
+  const charges = [];
+  if (num(c.opening) > 0) charges.push({ amt: num(c.opening), qty: 0, date: c.createdAt || '2000-01-01' });
+  state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id) charges.push({ amt: num(row.total) - num(row.received), qty: num(row.qty), date: r.date }); }));
+  state.fillings.forEach(f => { if (f.clientId === id) charges.push({ amt: fillTotal(f) - fillRecv(f), qty: num(f.qty), date: f.date }); });
+  charges.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  let pool = state.payments.filter(p => p.clientId === id).reduce((s, p) => s + num(p.amount), 0);
+  let owed = 0, bottles = 0;
+  charges.forEach(ch => { let rem = ch.amt; if (pool > 0 && rem > 0) { const t = Math.min(pool, rem); pool -= t; rem -= t; } if (rem > 0.5) { owed += rem; bottles += ch.qty; } });
+  return { owed: Math.round(owed), bottles };
+}
+
 
 /* ---------- UI: confirm + navigation ---------- */
 const UI = {
@@ -1349,19 +1381,17 @@ const Dashboard = {
     const collected = billCash + routeOldColl + fillCash + otherPay;   // every rupee that came in during M
     const collectRate = totalRev ? Math.round(collected / totalRev * 100) : 0;
 
-    // --- who still owes (month-aware): monthly clients -> unpaid invoices; daily -> running balance ---
+    // --- who still owes FROM the selected month (month-scoped, with bottles) ---
     const defRows = [];
     state.clients.forEach(c => {
-      const owed = isMonthly(c) ? monthlyBook(c.id).overdue : clientBalance(c.id);
-      if (owed > 0) {
-        let since = null;
-        if (isMonthly(c)) { const s = monthlyBook(c.id).overdueSince; since = s ? daysSince(s) : 0; }
-        else since = Collections.ageDays(c.id);
-        defRows.push({ c, bal: owed, days: since });
-      }
+      const mo = monthOwe(c.id, m);
+      if (mo.owed > 0) defRows.push({ c, bal: mo.owed, bottles: mo.bottles, days: mo.since ? daysSince(mo.since) : 0 });
     });
     defRows.sort((a, b) => b.bal - a.bal);
     const totalOut = defRows.reduce((s, x) => s + x.bal, 0);
+    const totalDefBottles = defRows.reduce((s, x) => s + x.bottles, 0);
+    // all-time outstanding (for context only)
+    const allOut = state.clients.reduce((s, c) => s + (isMonthly(c) ? monthlyBook(c.id).overdue : clientBalance(c.id)), 0);
 
     // --- derived stats ---
     const activeDays = Object.keys(deliveryDays).length;
@@ -1379,11 +1409,11 @@ const Dashboard = {
 
     const outTable = defRows.length
       ? '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">' +
-        '<thead><tr><th style="' + th + '">Client</th><th style="' + th + ';text-align:left">Area</th><th style="' + th + ';text-align:left">Phone</th><th style="' + th + ';text-align:right">Owes</th><th style="' + th + ';text-align:right">Overdue</th></tr></thead><tbody>' +
-        defRows.map(x => '<tr><td style="' + td + '">' + esc(x.c.name) + (isMonthly(x.c) ? ' <span style="font-size:9px;color:#0e7c9a">(M)</span>' : '') + '</td><td style="' + td + ';color:#64748b">' + esc(x.c.zone || '—') + '</td><td style="' + td + ';color:#64748b">' + esc(x.c.phone || '—') + '</td><td style="' + tdR + ';color:#b45309;font-weight:700">' + pkr(x.bal) + '</td><td style="' + tdR + ';color:#64748b">' + x.days + 'd</td></tr>').join('') +
-        '<tr style="background:#f1f5f9;font-weight:800"><td style="' + td + '" colspan="3">Total still to collect (' + defRows.length + ' clients)</td><td style="' + tdR + ';color:#b45309">' + pkr(totalOut) + '</td><td style="' + td + '"></td></tr>' +
+        '<thead><tr><th style="' + th + '">Client</th><th style="' + th + ';text-align:left">Area</th><th style="' + th + ';text-align:left">Phone</th><th style="' + th + ';text-align:right">Bottles</th><th style="' + th + ';text-align:right">Owes</th><th style="' + th + ';text-align:right">Overdue</th></tr></thead><tbody>' +
+        defRows.map(x => '<tr><td style="' + td + '">' + esc(x.c.name) + (isMonthly(x.c) ? ' <span style="font-size:9px;color:#0e7c9a">(M)</span>' : '') + '</td><td style="' + td + ';color:#64748b">' + esc(x.c.zone || '—') + '</td><td style="' + td + ';color:#64748b">' + esc(x.c.phone || '—') + '</td><td style="' + tdR + '">' + (x.bottles || '—') + '</td><td style="' + tdR + ';color:#b45309;font-weight:700">' + pkr(x.bal) + '</td><td style="' + tdR + ';color:#64748b">' + x.days + 'd</td></tr>').join('') +
+        '<tr style="background:#f1f5f9;font-weight:800"><td style="' + td + '" colspan="3">Total unpaid from ' + monthLabel + ' (' + defRows.length + ' clients)</td><td style="' + tdR + '">' + totalDefBottles + '</td><td style="' + tdR + ';color:#b45309">' + pkr(totalOut) + '</td><td style="' + td + '"></td></tr>' +
         '</tbody></table>'
-      : '<div style="font-size:12px;color:#16a34a;padding:6px 0">No outstanding balances — all clear. 🎉</div>';
+      : '<div style="font-size:12px;color:#16a34a;padding:6px 0">Nothing unpaid from ' + monthLabel + ' — all clear for this month. 🎉</div>';
 
     const netColor = net >= 0 ? '#16a34a' : '#c0392b';
     const statBox = (label, val, color) =>
@@ -1441,9 +1471,9 @@ const Dashboard = {
       '<div style="display:flex;gap:10px;margin-bottom:6px">' +
         statBox('Money collected', pkr(collected), '#16a34a') +
         statBox('Billed this month', pkr(totalRev), '#0e7c9a') +
-        statBox('Still to collect (now)', pkr(totalOut), '#b45309') +
+        statBox('Unpaid from ' + monthLabel, pkr(totalOut), '#b45309') +
       '</div>' +
-      '<div style="font-size:11px;color:#64748b;margin-bottom:16px">Received <b>' + collectRate + '%</b> of what was billed this month. The full list of clients who still owe (with phone numbers) is at the bottom of this report.</div>' +
+      '<div style="font-size:11px;color:#64748b;margin-bottom:16px">Received <b>' + collectRate + '%</b> of what was billed in ' + monthLabel + '. Total still owed across <b>all</b> months (every client): <b style="color:#b45309">' + pkr(allOut) + '</b>. The month-wise list of who still owes is at the bottom.</div>' +
 
       // expenses
       '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:6px">Expenses</div>' +
@@ -1471,8 +1501,8 @@ const Dashboard = {
       '</div>' +
 
       // outstanding snapshot
-      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:4px">Clients Who Still Owe <span style="font-weight:600;color:#64748b;text-transform:none;letter-spacing:0">(unpaid, as of ' + fmtDate(today()) + ')</span></div>' +
-      '<div style="font-size:12.5px;color:#475569;margin-bottom:4px">Total still to collect across all clients: <b style="color:#b45309">' + pkr(totalOut) + '</b>. (M) = monthly client.</div>' +
+      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:4px">Who Still Owes for ' + monthLabel + '</div>' +
+      '<div style="font-size:12.5px;color:#475569;margin-bottom:4px">These clients haven\u2019t fully paid their ' + monthLabel + ' bills. (M) = monthly client. Total: <b style="color:#b45309">' + pkr(totalOut) + '</b> across ' + defRows.length + ' clients.</div>' +
       outTable +
 
       // footer / signatures
@@ -2840,8 +2870,10 @@ const Collections = {
   remind(id) {
     const c = getClient(id); if (!c) return;
     const bal = isMonthly(c) ? monthlyBook(id).overdue : clientBalance(id);
+    const bottles = unpaidTotals(id).bottles;
     this._remPhone = this.normPhone(c.phone);
-    const msg = 'Assalam o Alaikum ' + (c.name || '') + '! Aqua Pack ki taraf se yaad-dahani: aap ka balance PKR ' + Math.round(bal).toLocaleString() + ' hai. Meharbani farma kar payment kar dein. Shukria!';
+    const btlTxt = bottles > 0 ? ' (' + bottles + ' bottle' + (bottles === 1 ? '' : 's') + ')' : '';
+    const msg = 'Assalam o Alaikum ' + (c.name || '') + '! Aqua Pack ki taraf se yaad-dahani: aap ka balance PKR ' + Math.round(bal).toLocaleString() + btlTxt + ' hai. Meharbani farma kar payment kar dein. Shukria!';
     $('remindText').value = msg;
     $('remindModal').classList.add('show');
   },
