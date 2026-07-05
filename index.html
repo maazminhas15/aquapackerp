@@ -197,7 +197,7 @@ tbody tr:hover{background:var(--surface-2)}
   <div class="top-in">
     <div class="brand">
       <div class="logo">💧</div>
-      <div><b>AQUA PACK</b><small>Water ERP · v7</small></div>
+      <div><b>AQUA PACK</b><small>Water ERP · v8</small></div>
     </div>
     <div class="top-right">
       <span class="savechip" id="cloudChip" onclick="switchView('data')" style="cursor:pointer"><span class="dot" id="cloudDot" style="background:var(--ink-faint)"></span><span id="cloudState">Local only</span></span>
@@ -1096,6 +1096,9 @@ function monthlyBook(id) {
   const overdueSince = firstUnpaid ? (firstUnpaid.inv ? (firstUnpaid.inv.issueDate || firstUnpaid.inv.from) : firstUnpaid.date) : null;
   return { receivables: recv, invoices: invs, unbilled, overdue, accruing, advance, overdueSince };
 }
+// SINGLE source of truth for "what a client owes to chase right now" — used by Dashboard, Collections, Ledger.
+// Monthly = unpaid issued invoices (overdue). Daily = running balance. (Monthly unbilled shows separately.)
+function owedNow(id) { const c = getClient(id); if (!c) return 0; return isMonthly(c) ? monthlyBook(id).overdue : Math.max(0, clientBalance(id)); }
 
 // Per-delivery settlement. Payments TAGGED to specific deliveries (p.alloc) settle those first;
 // whatever is left over clears the remaining charges OLDEST-first. Returns each charge with paid/unpaid.
@@ -1115,6 +1118,8 @@ function chargeSettlement(id) {
     (p.alloc || []).forEach(a => { if (a.key) { explicit[a.key] = (explicit[a.key] || 0) + num(a.amount); allocSum += num(a.amount); } });
     pool += num(p.amount) - allocSum;
   });
+  // an over-collection at one delivery (received > charge) becomes credit toward the client's other charges
+  charges.forEach(ch => { if (ch.owed < 0) { pool += -ch.owed; ch.owed = 0; } });
   // apply tagged payments to their exact charges first
   charges.forEach(ch => { ch.paid = 0; if (ch.key && explicit[ch.key] > 0) { const t = Math.min(ch.owed, explicit[ch.key]); ch.paid += t; explicit[ch.key] -= t; } });
   Object.keys(explicit).forEach(k => { if (explicit[k] > 0) pool += explicit[k]; }); // over-tagged spills back to pool
@@ -1286,7 +1291,7 @@ const Dashboard = {
     // route fuel/food/other count as expenses too
     state.routes.forEach(r => { if (this.inRange(r.date)) exp += num(r.fuel) + num(r.food) + num(r.other); });
 
-    const outstanding = state.clients.reduce((s, c) => s + Math.max(0, clientBalance(c.id)), 0);
+    const outstanding = state.clients.reduce((s, c) => s + owedNow(c.id), 0);
     const profit = sales - exp;
 
     $('dSales').textContent = pkr(sales);
@@ -1334,7 +1339,7 @@ const Dashboard = {
       '</tbody></table></div>';
   },
   renderTopOut() {
-    const rows = state.clients.map(c => ({ c, bal: clientBalance(c.id) })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal).slice(0, 8);
+    const rows = state.clients.map(c => ({ c, bal: owedNow(c.id) })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal).slice(0, 8);
     const body = $('topOutBody');
     if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="empty">No outstanding balances 🎉</td></tr>'; return; }
     body.innerHTML = rows.map(x =>
@@ -1850,7 +1855,14 @@ const RouteSheet = {
   },
   remove(id) {
     UI.confirm('Delete route sheet?', 'This permanently removes this day\'s route and its balances.',
-      () => { trackDelete('routes', id); state.routes = state.routes.filter(x => x.id !== id); save(); this.renderArchive(); toast('Route sheet deleted'); });
+      () => {
+        trackDelete('routes', id);
+        state.routes = state.routes.filter(x => x.id !== id);
+        // also remove the "old balance collected on route" payments this route created (else balances drift)
+        state.payments.filter(p => p.src === 'route' && p.routeId === id).forEach(p => { try { trackDelete('payments', p.id); } catch (e) {} });
+        state.payments = state.payments.filter(p => !(p.src === 'route' && p.routeId === id));
+        save(); this.renderArchive(); toast('Route sheet + its collections deleted');
+      });
   },
   renderArchive() {
     const q = ($('rArchSearch').value || '').toLowerCase();
@@ -1964,7 +1976,7 @@ const Ledger = {
     tx.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.kind === 'pay' ? 1 : -1));
     let run = 0; tx.forEach(t => { run += t.charge - t.paid; t.run = run; });
 
-    const bal = clientBalance(id);
+    const bal = owedNow(id);
     const mL = isMonthly(c) ? monthlyBook(id) : null;
     const since = mL ? mL.overdueSince : lastUnpaidDate(id);
     const overdue = mL ? (mL.overdue > 0) : (bal > 0 && since && daysSince(since) >= 7);
@@ -2064,6 +2076,9 @@ const Ledger = {
   // list the client's unpaid deliveries so a payment can be tagged to specific ones
   buildPayItems(id) {
     const wrap = $('payItemsWrap'), box = $('payItems'); if (!wrap || !box) return;
+    const c = getClient(id);
+    // monthly clients settle by invoice (use invoices + "move to next bill"), not per-delivery tagging
+    if (isMonthly(c)) { wrap.style.display = 'none'; box.innerHTML = ''; this._payItems = []; return; }
     // make sure every delivery has a stable id so it can be tagged
     let backfilled = false;
     state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id && !row.rid) { row.rid = uid(); backfilled = true; } }));
@@ -2184,27 +2199,18 @@ const Invoices = {
     this.renderList(); this.show(inv.id);
     toast('Invoice ' + inv.number + ' generated');
   },
-  // correct outstanding for an invoice: previous balance + this period − cash at delivery − later payments
+  // correct outstanding for an invoice — invoice-driven FIFO for ALL clients (no payment double-counting)
   invoiceBalance(inv) {
-    const c = getClient(inv.clientId);
     const periodTotal = (inv.items || []).reduce((s, i) => s + num(i.total), 0);
     const periodCash = (inv.items || []).reduce((s, i) => s + num(i.received), 0);
-    if (isMonthly(c)) {
-      // MONTHLY (invoice-driven): previous balance = UNPAID earlier invoices only (0 if they paid up).
-      const B = monthlyBook(inv.clientId);
-      const r = B.receivables.find(x => x.inv && x.inv.id === inv.id);
-      if (r) {
-        const due = Math.round(r.prevBalance + (r.gross - r.cash) - r.allocated);
-        return { prev: r.prevBalance, periodTotal: r.gross, periodCash: r.cash, payRecs: r.paidBy.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')), payable: r.allocated, due, monthly: true };
-      }
-      return { prev: 0, periodTotal, periodCash, payRecs: [], payable: 0, due: Math.round(periodTotal - periodCash), monthly: true };
+    // receivables = the client's issued invoices; payments clear the OLDEST invoice first, each payment used once.
+    const B = monthlyBook(inv.clientId);
+    const r = B.receivables.find(x => x.inv && x.inv.id === inv.id);
+    if (r) {
+      const due = Math.round(r.prevBalance + (r.gross - r.cash) - r.allocated);
+      return { prev: r.prevBalance, periodTotal: r.gross, periodCash: r.cash, payRecs: r.paidBy.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')), payable: r.allocated, due };
     }
-    // DAILY / legacy: running-balance behaviour (previous balance carried, all later payments count)
-    const prev = clientBalanceBefore(inv.clientId, inv.from);
-    const payRecs = state.payments.filter(p => p.clientId === inv.clientId && p.date >= inv.from).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    const payable = payRecs.reduce((s, p) => s + num(p.amount), 0);
-    const due = Math.round(prev + periodTotal - periodCash - payable);
-    return { prev, periodTotal, periodCash, payRecs, payable, due };
+    return { prev: 0, periodTotal, periodCash, payRecs: [], payable: 0, due: Math.round(periodTotal - periodCash) };
   },
   show(id) {
     const inv = state.invoices.find(x => x.id === id); if (!inv) return;
@@ -2915,21 +2921,25 @@ const DayBook = {
     const d = $('dbDate'); if (!d.value) d.value = today();
     const day = d.value;
     $('dbDateLbl').textContent = fmtDate(day);
-    const rows = state.payments.filter(p => p.date === day)
-      .map(p => ({ p, c: getClient(p.clientId) }))
-      .sort((a, b) => num(b.p.amount) - num(a.p.amount));
+    const rows = [];
+    // 1) explicit payments recorded on this day (ledger payments + route "old balance collected")
+    state.payments.filter(p => p.date === day).forEach(p => rows.push({ c: getClient(p.clientId), amount: num(p.amount), method: p.method || 'Cash', note: p.note || '', kind: 'payment' }));
+    // 2) cash taken AT delivery on this day (stored on the route row, not as a payment) — so the day's cash is complete
+    state.routes.forEach(r => { if (r.date === day) (r.rows || []).forEach(row => { const rec = num(row.received); if (rec > 0) rows.push({ c: getClient(row.clientId), amount: rec, method: 'Cash', note: 'Cash at delivery' + (r.driver ? ' · ' + r.driver : ''), kind: 'delivery' }); }); });
+    rows.sort((a, b) => b.amount - a.amount);
     let total = 0, cash = 0, online = 0;
-    rows.forEach(x => { const a = num(x.p.amount); total += a; if ((x.p.method || 'Cash').toLowerCase().includes('cash')) cash += a; else online += a; });
+    rows.forEach(x => { total += x.amount; if ((x.method || 'Cash').toLowerCase().includes('cash')) cash += x.amount; else online += x.amount; });
     $('dbTotal').textContent = pkr(total); $('dbCash').textContent = pkr(cash); $('dbOnline').textContent = pkr(online);
     const body = $('dbTable');
-    if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty"><span class="ic">📖</span>Is din koi payment record nahi hui</td></tr>'; $('dbCount').textContent = ''; return; }
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty"><span class="ic">📖</span>Is din koi collection nahi hui</td></tr>'; $('dbCount').textContent = ''; return; }
     body.innerHTML = rows.map(x => {
       const name = x.c ? x.c.name : '— (deleted client)';
-      const method = x.p.method || 'Cash';
+      const method = x.method || 'Cash';
       const mb = method.toLowerCase().includes('cash') ? '<span class="bdg paid">💵 ' + esc(method) + '</span>' : '<span class="bdg monthly">🏦 ' + esc(method) + '</span>';
-      return '<tr><td><b>' + esc(name) + '</b></td><td class="hide-sm mini">' + esc((x.c && x.c.zone) || '—') + '</td><td>' + mb + '</td><td class="hide-sm mini">' + esc(x.p.note || '—') + '</td><td class="r-money num money-pos"><b>' + pkr(x.p.amount) + '</b></td><td>' + (x.c ? '<button class="iconbtn" title="Open ledger" onclick="Ledger.open(\'' + x.c.id + '\')">📒</button>' : '') + '</td></tr>';
+      const noteTxt = x.kind === 'delivery' ? esc(x.note) : esc(x.note || '—');
+      return '<tr><td><b>' + esc(name) + '</b></td><td class="hide-sm mini">' + esc((x.c && x.c.zone) || '—') + '</td><td>' + mb + '</td><td class="hide-sm mini">' + noteTxt + '</td><td class="r-money num money-pos"><b>' + pkr(x.amount) + '</b></td><td>' + (x.c ? '<button class="iconbtn" title="Open ledger" onclick="Ledger.open(\'' + x.c.id + '\')">📒</button>' : '') + '</td></tr>';
     }).join('');
-    $('dbCount').textContent = rows.length + ' payment(s) collected on this day.';
+    $('dbCount').textContent = rows.length + ' collection(s) on this day — includes cash taken at delivery.';
   },
   step(n) {
     const d = $('dbDate'); const dt = new Date(d.value || today()); dt.setDate(dt.getDate() + n); d.value = localDate(dt); this.render();
