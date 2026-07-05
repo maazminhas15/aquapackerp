@@ -1,0 +1,3036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aqua Pack — Water ERP</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#eef3f6; --surface:#ffffff; --surface-2:#f6f9fb; --line:#dce5ec;
+  --ink:#0f2230; --ink-soft:#5a6b78; --ink-faint:#8a99a5;
+  --primary:#0e7c9a; --primary-d:#0b6076; --primary-l:#e3f1f6;
+  --green:#0f9d6b; --green-l:#e3f6ee; --red:#d8453b; --red-l:#fbe7e5;
+  --amber:#c98a1b; --amber-l:#fbf0d9; --blue:#2563eb; --blue-l:#e6edfb;
+  --radius:12px; --shadow:0 1px 2px rgba(16,40,60,.05),0 6px 20px rgba(16,40,60,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'Sora','Inter',sans-serif;letter-spacing:-.01em}
+.num{font-variant-numeric:tabular-nums}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:inherit;font-size:14px}
+a{color:var(--primary)}
+
+/* layout */
+.app{max-width:1180px;margin:0 auto;padding:0 14px 80px}
+header.top{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top-in{max-width:1180px;margin:0 auto;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(140deg,var(--primary),#13a4c9);display:grid;place-items:center;color:#fff;font-size:19px;box-shadow:0 4px 12px rgba(14,124,154,.35)}
+.brand b{font-family:'Sora';font-size:17px;letter-spacing:.02em;display:block;line-height:1}
+.brand small{color:var(--ink-faint);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.top-right{display:flex;align-items:center;gap:10px}
+.savechip{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line);padding:5px 10px;border-radius:20px}
+.savechip .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+
+nav.tabs{position:sticky;top:59px;z-index:30;background:var(--bg);padding:8px 0 2px}
+.tabs-in{max-width:1180px;margin:0 auto;padding:0 14px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.tabs-in::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;font-weight:600;font-size:13px;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);white-space:nowrap;transition:.12s}
+.tab:hover{color:var(--ink)}
+.tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tab .ic{font-size:14px}
+
+.view{display:none;padding-top:18px;animation:fade .2s}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.page-h{margin-bottom:16px}
+.page-h h2{font-size:21px}
+.page-h p{color:var(--ink-soft);font-size:13px;margin-top:2px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.card-h h3{font-size:15px;display:flex;align-items:center;gap:8px}
+.card-h h3 .ic{color:var(--primary)}
+
+/* grid + fields */
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:760px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.field label{display:block;font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px}
+.inp{width:100%;background:var(--surface-2);border:1.5px solid var(--line);color:var(--ink);padding:10px 11px;border-radius:9px;transition:.12s}
+.inp:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px var(--primary-l)}
+select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a6b78' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:30px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 15px;border-radius:9px;font-weight:600;font-size:13.5px;transition:.12s;border:1.5px solid transparent}
+.btn:active{transform:translateY(1px)}
+.btn.pri{background:var(--primary);color:#fff}.btn.pri:hover{background:var(--primary-d)}
+.btn.ghost{background:var(--surface-2);color:var(--ink);border-color:var(--line)}.btn.ghost:hover{border-color:var(--ink-faint)}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.sm{padding:7px 11px;font-size:12.5px}
+.btn.block{width:100%}
+.btn.danger{background:var(--red-l);color:var(--red)}
+.iconbtn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line)}
+.iconbtn:hover{color:var(--ink)}
+.iconbtn.del:hover{color:var(--red);background:var(--red-l);border-color:var(--red-l)}
+
+/* stat cards */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:480px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 14px 13px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat .lbl{font-size:11px;font-weight:600;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em}
+.stat .val{font-family:'Sora';font-size:20px;font-weight:700;margin-top:6px}
+.stat .sub{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.stat::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--primary)}
+.stat.green::after{background:var(--green)}.stat.red::after{background:var(--red)}.stat.amber::after{background:var(--amber)}.stat.blue::after{background:var(--blue)}
+
+/* segmented */
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+.seg button{padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+.seg button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+/* tables */
+.tw{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--surface-2);text-align:left;padding:10px 12px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+.r-money{text-align:right;font-variant-numeric:tabular-nums}
+.empty{text-align:center;padding:30px 16px;color:var(--ink-faint);font-size:13px}
+.empty .ic{font-size:26px;display:block;margin-bottom:8px;opacity:.5}
+
+/* badges */
+.bdg{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.bdg.daily{background:var(--green-l);color:var(--green)}
+.bdg.monthly{background:var(--blue-l);color:var(--blue)}
+.bdg.paid{background:var(--green-l);color:var(--green)}
+.bdg.unpaid{background:var(--red-l);color:var(--red)}
+.bdg.partial{background:var(--amber-l);color:var(--amber)}
+.bdg.bal{background:var(--amber-l);color:var(--amber)}
+.dotwarn{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px var(--red-l);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(216,69,59,.05)}}
+
+/* autocomplete */
+.ac-wrap{position:relative}
+.ac-list{position:absolute;z-index:60;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(16,40,60,.16);max-height:280px;overflow-y:auto;display:none}
+.ac-list.show{display:block}
+.ac-item{padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--surface-2);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover,.ac-item.hl{background:var(--primary-l)}
+.ac-item .nm{font-weight:600}
+.ac-item .meta{font-size:11.5px;color:var(--ink-soft)}
+.ac-add{color:var(--primary);font-weight:600}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(15,34,48,.55);backdrop-filter:blur(2px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:24px 12px;overflow-y:auto}
+.overlay.show{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:620px;box-shadow:0 24px 60px rgba(0,0,0,.3);animation:pop .18s}
+.modal.wide{max-width:840px}
+@keyframes pop{from{opacity:0;transform:scale(.97) translateY(6px)}to{opacity:1;transform:none}}
+.modal-h{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}
+.modal-h h3{font-size:16px}
+.modal-b{padding:18px}
+.modal-f{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.x{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--ink-soft);font-size:18px}
+.x:hover{background:var(--surface-2)}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,80px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:11px;font-weight:600;font-size:13.5px;z-index:200;opacity:0;transition:.25s;display:flex;align-items:center;gap:9px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.toast.show{transform:translate(-50%,0);opacity:1}
+.toast.ok{background:var(--green)}.toast.err{background:var(--red)}
+
+.mini{font-size:11.5px;color:var(--ink-soft)}
+.pill{display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);font-size:11px;font-weight:600;color:var(--ink-soft)}
+.hr{height:1px;background:var(--line);margin:14px 0;border:none}
+.row-actions{display:flex;gap:6px}
+.hide-sm{}@media(max-width:680px){.hide-sm{display:none!important}}
+.flexspace{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.tag-zone{font-size:10.5px;font-weight:700;color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line);padding:1px 7px;border-radius:6px}
+.money-pos{color:var(--green)}.money-neg{color:var(--red)}.money-bal{color:var(--amber)}
+
+/* invoice print sheet */
+#invoiceSheet{background:#fff;color:#111;font-family:'Inter',sans-serif}
+@media print{
+  body *{visibility:hidden}
+  #invoiceSheet,#invoiceSheet *{visibility:visible}
+  #invoiceSheet{position:absolute;left:0;top:0;width:100%;padding:24px}
+  .no-print{display:none!important}
+}
+.navbadge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;font-weight:800;line-height:1}
+/* lock screen */
+.lock{position:fixed;inset:0;z-index:500;background:linear-gradient(160deg,#0e7c9a,#0d1b24);display:flex;align-items:center;justify-content:center;padding:20px}
+.lock.hidden{display:none}
+.lock-box{background:#fff;border-radius:20px;padding:34px 26px;width:100%;max-width:340px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.lock-logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(140deg,var(--primary),#13a4c9);display:grid;place-items:center;font-size:28px;margin:0 auto 12px;color:#fff}
+.lock-box h2{font-family:'Sora';font-size:20px}
+.lock-sub{color:var(--ink-soft);font-size:13px;margin:4px 0 18px}
+.lock-input{width:100%;text-align:center;font-size:26px;letter-spacing:8px;padding:12px;border:2px solid var(--line);border-radius:12px;background:var(--surface-2);margin-bottom:8px}
+.lock-input:focus{outline:none;border-color:var(--primary);background:#fff}
+.lock-err{color:var(--red);font-size:13px;font-weight:600;min-height:18px;margin-bottom:6px}
+</style>
+</head>
+<body>
+
+<div id="lockScreen" class="lock">
+  <div class="lock-box">
+    <div class="lock-logo">💧</div>
+    <h2>Aqua Pack</h2>
+    <p class="lock-sub">Enter your PIN to continue</p>
+    <input type="password" id="lockPin" class="lock-input num" inputmode="numeric" maxlength="10" placeholder="••••" autocomplete="off">
+    <div id="lockErr" class="lock-err"></div>
+    <button class="btn pri block" onclick="Lock.check()">Unlock</button>
+  </div>
+</div>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <div class="logo">💧</div>
+      <div><b>AQUA PACK</b><small>Water ERP</small></div>
+    </div>
+    <div class="top-right">
+      <span class="savechip" id="cloudChip" onclick="switchView('data')" style="cursor:pointer"><span class="dot" id="cloudDot" style="background:var(--ink-faint)"></span><span id="cloudState">Local only</span></span>
+      <span class="savechip"><span class="dot"></span><span id="saveState">Saved locally</span></span>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="tabs-in" id="tabsBar">
+    <button class="tab active" data-view="dashboard"><span class="ic">📊</span>Dashboard</button>
+    <button class="tab" data-view="route"><span class="ic">🚚</span>Route Sheet</button>
+    <button class="tab" data-view="clients"><span class="ic">👥</span>Clients</button>
+    <button class="tab" data-view="ledger"><span class="ic">📒</span>Ledger</button>
+    <button class="tab" data-view="invoices"><span class="ic">🧾</span>Invoices</button>
+    <button class="tab" data-view="collections"><span class="ic">💰</span>Collections</button>
+    <button class="tab" data-view="expenses"><span class="ic">💸</span>Expenses</button>
+    <button class="tab" data-view="filling"><span class="ic">🚰</span>Filling</button>
+    <button class="tab" data-view="inventory"><span class="ic">📦</span>Inventory</button>
+    <button class="tab" data-view="checks"><span class="ic">🛡️</span>Checks<span id="checkBadge" class="navbadge" style="display:none">0</span></button>
+    <button class="tab" data-view="data"><span class="ic">⚙️</span>Data</button>
+  </div>
+</nav>
+
+<main class="app">
+
+<!-- ============ DASHBOARD ============ -->
+<section id="dashboard" class="view active">
+  <div class="page-h flexspace">
+    <div><h2>Dashboard</h2><p>Your business at a glance</p></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="seg" id="dashSeg">
+        <button class="active" data-range="all" onclick="Dashboard.setRange('all',this)">All time</button>
+        <button data-range="month" onclick="Dashboard.setRange('month',this)">This month</button>
+        <button data-range="day" onclick="Dashboard.setRange('day',this)">Today</button>
+      </div>
+      <input type="month" id="dashMonth" class="inp" style="width:auto" onchange="Dashboard.pickMonth(this.value)" title="View any specific month">
+    </div>
+  </div>
+  <div id="dashRangeNote" class="mini" style="margin:-6px 0 12px"></div>
+
+  <div class="card" id="reminderCard" style="border-color:var(--amber)">
+    <div class="card-h"><h3><span class="ic">📌</span> Reminders</h3><span class="pill" id="remPending">0</span></div>
+    <p class="mini" style="margin:-4px 0 12px">Write anything you don't want to forget. Tick it ✓ when it's done.</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="remInput" class="inp" placeholder="e.g. Ali will pay tomorrow" onkeydown="if(event.key==='Enter')Reminders.add()">
+      <button class="btn pri sm" style="flex:none" onclick="Reminders.add()">＋ Add</button>
+    </div>
+    <div id="remList"></div>
+  </div>
+
+  <div class="card" id="collectedTodayCard" style="border-color:var(--green)">
+    <div class="card-h"><h3><span class="ic">💰</span> Collected today <span class="mini" id="ctDate"></span></h3><span class="pill" id="ctTotal" style="background:var(--green);color:#fff">PKR 0</span></div>
+    <p class="mini" style="margin:-4px 0 10px">Everyone you took money from today — split into today's bottles vs old balance. Updates by itself.</p>
+    <div id="ctList"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat blue"><div class="lbl">Sales</div><div class="val num" id="dSales">0</div><div class="sub" id="dSalesSub"></div></div>
+    <div class="stat"><div class="lbl">Bottles out</div><div class="val num" id="dBottles">0</div><div class="sub" id="dBottlesSub"></div></div>
+    <div class="stat green"><div class="lbl">Cash in</div><div class="val num" id="dCash">0</div></div>
+    <div class="stat red"><div class="lbl">Expenses</div><div class="val num" id="dExp">0</div></div>
+    <div class="stat amber"><div class="lbl">Outstanding</div><div class="val num" id="dBal">0</div><div class="sub">across all clients</div></div>
+    <div class="stat green"><div class="lbl">Net profit</div><div class="val num" id="dProfit">0</div></div>
+  </div>
+
+  <div id="dashStockAlert"></div>
+  <div class="grid g2">
+    <div class="card">
+      <div class="card-h"><h3><span class="ic">🔔</span> Today's deliveries</h3><span class="pill" id="todayCount">—</span></div>
+      <div id="todayDeliveries"></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3><span class="ic">⚠️</span> Needs follow-up <span class="mini" style="font-weight:500">(unpaid 7+ days)</span></h3></div>
+      <div id="followupList"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <h3><span class="ic">📈</span> Profit &amp; Loss</h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="month" id="plMonth" class="inp" style="width:auto" onchange="Dashboard.renderPL()">
+        <button class="btn dark sm" onclick="Dashboard.monthlyReport()">📄 Monthly Report</button>
+      </div>
+    </div>
+    <div id="plBody"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">🏆</span> Top outstanding clients</h3></div>
+    <div class="tw"><table>
+      <thead><tr><th>Client</th><th class="hide-sm">Area</th><th>Type</th><th class="r-money">Balance</th><th></th></tr></thead>
+      <tbody id="topOutBody"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ============ ROUTE SHEET ============ -->
+<section id="route" class="view">
+  <div class="page-h"><h2>Route Sheet</h2><p>Log a day's deliveries, expenses &amp; bottle movement</p></div>
+
+  <div class="card">
+    <div class="card-h">
+      <h3><span class="ic">🚚</span> <span id="routeFormTitle">New route sheet</span></h3>
+      <span id="routeEditingBadge" class="bdg partial" style="display:none">Editing saved sheet</span>
+    </div>
+    <div class="grid g3" style="margin-bottom:12px">
+      <div class="field"><label>Date</label><input type="date" id="rDate" class="inp"></div>
+      <div class="field"><label>Driver</label><input type="text" id="rDriver" class="inp" placeholder="Driver name"></div>
+      <div class="field"><label>Vehicle no.</label><input type="text" id="rVehicle" class="inp" placeholder="e.g. TB-102"></div>
+    </div>
+    <div class="grid g4" style="margin-bottom:12px">
+      <div class="field"><label>Fuel (PKR)</label><input type="number" id="rFuel" class="inp num" value="0"></div>
+      <div class="field"><label>Food (PKR)</label><input type="number" id="rFood" class="inp num" value="0"></div>
+      <div class="field"><label>Other (PKR)</label><input type="number" id="rOther" class="inp num" value="0"></div>
+      <div class="field"><label>Other note</label><input type="text" id="rOtherNote" class="inp" placeholder="optional"></div>
+    </div>
+    <div class="grid g3">
+      <div class="field"><label>Bottles loaded from plant</label><input type="number" id="rBotOut" class="inp num" value="0"></div>
+      <div class="field"><label>Bottles returned to plant</label><input type="number" id="rBotRet" class="inp num" value="0"></div>
+      <div class="field"><label>Damaged / lost</label><input type="number" id="rBotDmg" class="inp num" value="0"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">➕</span> Add client to this route</h3></div>
+    <div class="ac-wrap" style="margin-bottom:6px">
+      <input type="text" id="routeClientSearch" class="inp" autocomplete="off" placeholder="Type a client name… (e.g. Ali)">
+      <div id="routeClientAC" class="ac-list"></div>
+    </div>
+    <p class="mini">Start typing — pick a client to drop them into the sheet. Their rate, type &amp; balance auto-fill.</p>
+
+    <div class="tw" style="margin-top:14px">
+      <table>
+        <thead><tr><th>Client</th><th class="hide-sm">Area</th><th>Type</th><th>Qty</th><th>Rate</th><th class="r-money">Total</th><th class="r-money">Cash in</th><th class="r-money">Balance</th><th></th></tr></thead>
+        <tbody id="routeRows"><tr><td colspan="9" class="empty"><span class="ic">🫗</span>No clients added yet</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="stats" style="margin-top:16px;grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><div class="lbl">Bottles delivered</div><div class="val num" id="rsQty">0</div></div>
+      <div class="stat green"><div class="lbl">Cash collected</div><div class="val num" id="rsCash">0</div></div>
+      <div class="stat red"><div class="lbl">Route expenses</div><div class="val num" id="rsExp">0</div></div>
+      <div class="stat amber"><div class="lbl">New balance (credit)</div><div class="val num" id="rsBal">0</div></div>
+    </div>
+
+    <div class="card" style="background:var(--surface-2);margin-top:16px;margin-bottom:0">
+      <div class="flexspace">
+        <div>
+          <div class="mini">Driver should hand over</div>
+          <div class="num" style="font-family:'Sora';font-size:22px;font-weight:700;color:var(--green)" id="rsHandover">PKR 0</div>
+          <div class="mini" id="rsHandoverNote">cash collected − route expenses</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn ghost" onclick="RouteSheet.clearForm()">Clear</button>
+          <button class="btn pri" onclick="RouteSheet.save()">💾 Save route sheet</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">🗂️</span> Saved route sheets</h3></div>
+    <div class="grid g3" style="margin-bottom:12px">
+      <input type="text" id="rArchSearch" class="inp" placeholder="Search driver / vehicle / date" oninput="RouteSheet.renderArchive()">
+      <input type="date" id="rArchFrom" class="inp" onchange="RouteSheet.renderArchive()">
+      <input type="date" id="rArchTo" class="inp" onchange="RouteSheet.renderArchive()">
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Date</th><th class="hide-sm">Driver / Vehicle</th><th>Clients</th><th>Bottles</th><th class="r-money">Total</th><th class="r-money">Cash in</th><th class="r-money">Expenses</th><th class="r-money">Net cash</th><th class="r-money">Balance added</th><th></th></tr></thead>
+      <tbody id="routeArchive"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ============ CLIENTS ============ -->
+<section id="clients" class="view">
+  <div class="page-h"><h2>Clients</h2><p>Rates, security deposits &amp; contact details</p></div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">👤</span> <span id="clientFormTitle">Add client</span></h3></div>
+    <input type="hidden" id="cEditId">
+    <div class="grid g2" style="margin-bottom:12px">
+      <div class="field"><label>Name</label><input type="text" id="cName" class="inp" placeholder="Client name"></div>
+      <div class="field"><label>Billing type</label><select id="cType" class="inp" onchange="Clients.toggleBillDay()"><option value="Daily">Daily (cash on delivery)</option><option value="Monthly">Monthly (invoiced)</option></select></div>
+      <div class="field" id="cBillDayWrap" style="display:none"><label>Billing day (cycle start)</label><select id="cBillDay" class="inp"></select><div class="mini" style="margin-top:4px">1 = calendar month. Set 13 for a 13th→12th cycle.</div></div>
+      <div class="field"><label>Phone</label><input type="text" id="cPhone" class="inp" placeholder="03xx-xxxxxxx"></div>
+      <div class="field"><label>Area / Route zone</label><input type="text" id="cZone" class="inp" placeholder="e.g. Bahria Phase 4" list="zoneList"><datalist id="zoneList"></datalist></div>
+      <div class="field" style="grid-column:1/-1"><label>Address</label><input type="text" id="cAddr" class="inp" placeholder="Full delivery address"></div>
+      <div class="field"><label>Rate per bottle (PKR)</label><input type="number" id="cRate" class="inp num" value="120"></div>
+      <div class="field"><label>Default bottle size</label><select id="cSize" class="inp"><option>19 L</option><option>12 L</option><option>6 L</option><option>1.5 L</option><option>500 ml</option></select></div>
+      <div class="field"><label>Empty bottles with client</label><input type="number" id="cBottlesHeld" class="inp num" value="0"></div>
+      <div class="field"><label>Security deposit held (PKR)</label><input type="number" id="cSecurity" class="inp num" value="0"></div>
+      <div class="field"><label>Opening balance (PKR owed)</label><input type="number" id="cOpening" class="inp num" value="0"></div>
+    </div>
+    <div class="row-actions">
+      <button class="btn pri" onclick="Clients.save()">💾 Save client</button>
+      <button class="btn ghost" onclick="Clients.clearForm()">Clear</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <h3><span class="ic">📋</span> All clients</h3>
+      <span class="pill" id="clientCount">0</span>
+    </div>
+    <div class="flexspace" style="margin-bottom:12px">
+      <div class="seg" id="clientSeg">
+        <button class="active" onclick="Clients.setFilter('all',this)">All</button>
+        <button onclick="Clients.setFilter('Daily',this)">Daily</button>
+        <button onclick="Clients.setFilter('Monthly',this)">Monthly</button>
+        <button onclick="Clients.setFilter('unpaid',this)">Has balance</button>
+      </div>
+      <input type="text" id="clientSearch" class="inp" style="max-width:240px" placeholder="Search clients…" oninput="Clients.renderList()">
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Name</th><th>Type</th><th class="hide-sm">Area</th><th class="hide-sm">Rate</th><th class="r-money">Balance</th><th></th></tr></thead>
+      <tbody id="clientTable"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ============ LEDGER ============ -->
+<section id="ledger" class="view">
+  <div class="page-h"><h2>Client Ledger</h2><p>Deliveries, payments &amp; running balance per client</p></div>
+  <div class="card">
+    <div class="ac-wrap">
+      <input type="text" id="ledgerSearch" class="inp" autocomplete="off" placeholder="Search a client to open their ledger…">
+      <div id="ledgerAC" class="ac-list"></div>
+    </div>
+    <div class="seg" id="ledgerFilter" style="margin-top:12px">
+      <button class="active" onclick="Ledger.setFilter('all',this)">All</button>
+      <button onclick="Ledger.setFilter('Daily',this)">Daily</button>
+      <button onclick="Ledger.setFilter('Monthly',this)">Monthly</button>
+    </div>
+    <div id="ledgerList" class="mini" style="margin-top:10px"></div>
+  </div>
+  <div id="ledgerBody"><div class="card"><div class="empty"><span class="ic">📒</span>Search or pick a client above to see their history</div></div></div>
+</section>
+
+<!-- ============ INVOICES ============ -->
+<section id="invoices" class="view">
+  <div class="page-h"><h2>Invoices</h2><p>Generate, print &amp; track daily and monthly invoices</p></div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">🧾</span> Generate invoice</h3></div>
+    <div class="grid g2" style="margin-bottom:12px">
+      <div class="field" style="grid-column:1/-1">
+        <label>Client</label>
+        <div class="ac-wrap"><input type="text" id="invClientSearch" class="inp" autocomplete="off" placeholder="Search client…"><div id="invClientAC" class="ac-list"></div></div>
+        <div id="invClientChosen" class="mini" style="margin-top:6px"></div>
+      </div>
+      <div class="field"><label>From date</label><input type="date" id="invFrom" class="inp"></div>
+      <div class="field"><label>To date</label><input type="date" id="invTo" class="inp"></div>
+    </div>
+    <div class="row-actions">
+      <button class="btn ghost sm" onclick="Invoices.quickRange('this')">This month</button>
+      <button class="btn ghost sm" onclick="Invoices.quickRange('prev')">Last month</button>
+      <button class="btn ghost sm" onclick="Invoices.quickRange('today')">Today</button>
+      <button class="btn pri" style="margin-left:auto" onclick="Invoices.generate()">Generate invoice</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <h3><span class="ic">📑</span> Saved invoices</h3>
+      <input type="text" id="invSearch" class="inp" style="width:auto" placeholder="Search…" oninput="Invoices.renderList()">
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Invoice #</th><th>Client</th><th class="hide-sm">Period</th><th>Qty</th><th class="r-money">Amount</th><th>Status</th><th></th></tr></thead>
+      <tbody id="invTable"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ============ EXPENSES ============ -->
+<section id="expenses" class="view">
+  <div class="page-h"><h2>Expenses &amp; Overheads</h2><p>Daily route costs and fixed monthly bills</p></div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">➕</span> Record expense</h3></div>
+    <div class="grid g4" style="margin-bottom:12px">
+      <div class="field"><label>Date</label><input type="date" id="eDate" class="inp"></div>
+      <div class="field"><label>Category</label><select id="eCat" class="inp">
+        <option>Fuel</option><option>Food</option><option>Vehicle maintenance</option><option>Car installment</option>
+        <option>Filling charges (plant)</option><option>Bottle caps</option><option>Salary</option>
+        <option>Rent</option><option>Electricity</option><option>Plant maintenance</option><option>Raw material</option><option>Other</option>
+      </select></div>
+      <div class="field"><label>Amount (PKR)</label><input type="number" id="eAmount" class="inp num"></div>
+      <div class="field"><label>Recurring?</label><select id="eRecurring" class="inp"><option value="no">One-time</option><option value="monthly">Monthly fixed</option></select></div>
+      <div class="field" style="grid-column:1/-1"><label>Details</label><input type="text" id="eDetails" class="inp" placeholder="e.g. 500 caps @ 4 PKR"></div>
+    </div>
+    <button class="btn pri" onclick="Expenses.save()">💾 Save expense</button>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <h3><span class="ic">📋</span> Expense ledger</h3>
+      <div class="seg" id="expSeg">
+        <button class="active" onclick="Expenses.setRange('all',this)">All</button>
+        <button onclick="Expenses.setRange('month',this)">This month</button>
+        <button onclick="Expenses.setRange('day',this)">Today</button>
+      </div>
+    </div>
+    <div class="flexspace" style="margin-bottom:10px">
+      <span class="mini">Total: <b class="num" id="expTotal" style="color:var(--red)">PKR 0</b></span>
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Date</th><th>Category</th><th class="hide-sm">Details</th><th class="r-money">Amount</th><th></th></tr></thead>
+      <tbody id="expTable"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ============ INVENTORY ============ -->
+<section id="filling" class="view">
+  <div class="page-h"><h2>Plant Filling</h2><p>Bottles filled at the plant for walk-ins &amp; regular fillers</p></div>
+
+  <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+    <div class="stat blue"><div class="lbl">Bottles filled <span id="fRangeLbl" class="mini">(all)</span></div><div class="val num" id="fTotalQty">0</div></div>
+    <div class="stat green"><div class="lbl">Cash collected</div><div class="val num" id="fTotalCash">PKR 0</div></div>
+    <div class="stat amber"><div class="lbl">On credit (unpaid)</div><div class="val num" id="fTotalCredit">PKR 0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">🚰</span> Log a filling</h3></div>
+    <div class="grid g4" style="margin-bottom:12px">
+      <div class="field"><label>Date</label><input type="date" id="fDate" class="inp"></div>
+      <div class="field" style="grid-column:span 2"><label>Customer name</label><input list="fClientList" id="fCustomer" class="inp" placeholder="walk-in, shop, or filler name" autocomplete="off"><datalist id="fClientList"></datalist></div>
+      <div class="field"><label>Bottles filled</label><input type="number" id="fQty" class="inp num" placeholder="0" oninput="Filling.calc()"></div>
+      <div class="field"><label>Rate per bottle</label><input type="number" id="fRate" class="inp num" value="35" oninput="Filling.calc()"></div>
+      <div class="field"><label>Total</label><input type="text" id="fAmount" class="inp num" readonly style="background:var(--surface-2)"></div>
+      <div class="field" style="grid-column:span 2"><label>Payment</label>
+        <select id="fStatus" class="inp" onchange="Filling.calc()">
+          <option value="paid">✅ Paid in full (cash now)</option>
+          <option value="credit">📋 On credit — add to their bill</option>
+          <option value="partial">➗ Partial payment</option>
+        </select>
+      </div>
+      <div class="field" id="fRecvWrap" style="display:none"><label>Cash received now</label><input type="number" id="fReceived" class="inp num" placeholder="0"></div>
+    </div>
+    <p class="mini" id="fHint" style="margin-bottom:12px"></p>
+    <button class="btn pri" onclick="Filling.save()">💾 Save filling</button>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <h3><span class="ic">📋</span> Filling log</h3>
+      <div class="seg" id="fSeg">
+        <button class="active" onclick="Filling.setRange('all',this)">All</button>
+        <button onclick="Filling.setRange('month',this)">This month</button>
+        <button onclick="Filling.setRange('day',this)">Today</button>
+      </div>
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Date</th><th>Customer</th><th>Bottles</th><th class="r-money">Rate</th><th class="r-money">Total</th><th class="r-money">Paid</th><th class="r-money">Balance</th><th></th></tr></thead>
+      <tbody id="fTable"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <div class="field" style="max-width:280px"><label>Default filling rate (PKR)</label><input type="number" id="fDefaultRate" class="inp num" onchange="Filling.saveRate()"></div>
+    <p class="mini" style="margin-top:8px">Cash fillings go to your Dashboard income. <b>Credit fillings</b> become that customer's outstanding balance and show on their monthly bill — automatically.</p>
+  </div>
+</section>
+
+<!-- ============ ACCOUNTS CHECK ============ -->
+<section id="checks" class="view">
+  <div class="page-h"><h2>Accounts Check</h2><p>Your safety net — the system audits itself and flags anything off before the owner sees it</p></div>
+
+  <div class="card" style="background:linear-gradient(135deg,#0e7c9a08,#13a4c910);border-color:var(--primary)">
+    <div class="flexspace">
+      <div>
+        <div id="checkHeadline" style="font-size:18px;font-weight:800;font-family:'Sora',sans-serif">Running checks…</div>
+        <div class="mini" id="checkSub" style="margin-top:4px">—</div>
+      </div>
+      <button class="btn ghost sm" onclick="AccountsCheck.render()">↻ Re-check</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-h"><h3><span class="ic">💵</span> Today's cash — what you should have</h3></div>
+    <div id="cashTally"></div>
+  </div>
+
+  <div id="checkBody"></div>
+</section>
+
+<!-- ============ COLLECTIONS ============ -->
+<section id="collections" class="view">
+  <div class="page-h"><h2>Collections</h2><p>Who owes you, how old it is, one-tap reminders &amp; your cash in hand</p></div>
+
+  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+    <div class="stat amber"><div class="lbl">Total outstanding</div><div class="val num" id="agTotal">PKR 0</div></div>
+    <div class="stat green"><div class="lbl">0–7 days</div><div class="val num" id="ag0">PKR 0</div></div>
+    <div class="stat blue"><div class="lbl">8–30 days</div><div class="val num" id="ag8">PKR 0</div></div>
+    <div class="stat red"><div class="lbl">30+ days (chase!)</div><div class="val num" id="ag30">PKR 0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">📅</span> Receivables aging</h3><span class="pill">oldest first</span></div>
+    <div class="tw"><table>
+      <thead><tr><th>Customer</th><th class="hide-sm">Area</th><th class="r-money">Balance</th><th>Age</th><th></th></tr></thead>
+      <tbody id="agTable"></tbody>
+    </table></div>
+    <p class="mini" style="margin-top:8px">💬 <b>Remind</b> auto-writes a WhatsApp message with their balance. You copy it and paste it yourself — nothing is sent automatically. (Add a phone number on the customer if you want the "Open WhatsApp" shortcut.)</p>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">💵</span> Cash in hand</h3><span class="pill" id="cashNow">PKR 0</span></div>
+    <p class="mini" style="margin-bottom:14px">The cash <b>you are personally holding right now</b> — separate from sales. Log it when cash comes into your hand (from the owner or collections) and when you hand it over or spend it.</p>
+    <div class="grid g4">
+      <div class="field"><label>Date</label><input type="date" id="cbDate" class="inp"></div>
+      <div class="field"><label>Direction</label><select id="cbDir" class="inp"><option value="in">＋ Received (into my hand)</option><option value="out">－ Handed over / spent</option></select></div>
+      <div class="field"><label>Amount (PKR)</label><input type="number" id="cbAmt" class="inp num"></div>
+      <div class="field"><label>Note</label><input type="text" id="cbNote" class="inp" placeholder="e.g. from owner, gave to owner"></div>
+    </div>
+    <button class="btn pri" style="margin-top:12px" onclick="Collections.addCash()">💾 Save entry</button>
+    <div class="tw" style="margin-top:14px"><table>
+      <thead><tr><th>Date</th><th>Detail</th><th class="r-money">In</th><th class="r-money">Out</th><th class="r-money">In hand</th><th></th></tr></thead>
+      <tbody id="cbTable"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ============ DATA ============ -->
+<section id="inventory" class="view">
+  <div class="page-h"><h2>Inventory &amp; Stock Control</h2><p>Caps, bottle pool &amp; stock — auto-updated from routes &amp; filling</p></div>
+
+  <div id="invAlerts"></div>
+
+  <div class="card" style="background:linear-gradient(135deg,#0e7c9a08,#13a4c910);border-color:var(--primary)">
+    <div class="card-h"><h3><span class="ic">📊</span> At a glance</h3><span class="pill">live</span></div>
+    <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:0">
+      <div class="stat"><div class="lbl">🧴 Caps on hand</div><div class="val num" id="sumCaps">0</div></div>
+      <div class="stat amber"><div class="lbl">Caps used today</div><div class="val num" id="sumCapsToday">0</div></div>
+      <div class="stat blue"><div class="lbl">🛢️ Bottles in plant</div><div class="val num" id="sumBottlesPlant">0</div></div>
+      <div class="stat green"><div class="lbl">Bottles with customers</div><div class="val num" id="sumBottlesOut">0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">🧴</span> Caps (19L)</h3><span id="capsStatus" class="pill">—</span></div>
+    <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+      <div class="stat"><div class="lbl">On hand now</div><div class="val num" id="capsOnHand">0</div></div>
+      <div class="stat amber"><div class="lbl">Used today</div><div class="val num" id="capsToday">0</div></div>
+      <div class="stat red"><div class="lbl" id="capsUsedLbl">Used since count</div><div class="val num" id="capsUsed">0</div></div>
+      <div class="stat"><div class="lbl">Reorder level</div><div class="val num" id="capsReorderShow">100</div></div>
+    </div>
+    <div class="grid g3">
+      <div class="field"><label>Set current caps in stock</label><input type="number" id="capsSetQty" class="inp num" placeholder="e.g. 400"></div>
+      <div class="field"><label>As of date</label><input type="date" id="capsSetDate" class="inp"></div>
+      <div class="field" style="display:flex;align-items:flex-end"><button class="btn ghost block" onclick="Inventory.setCaps()">📌 Set as current stock</button></div>
+    </div>
+    <hr class="hr">
+    <div class="grid g4">
+      <div class="field"><label>Buy caps — quantity</label><input type="number" id="capsBuyQty" class="inp num" placeholder="500"></div>
+      <div class="field"><label>Cost (PKR, optional)</label><input type="number" id="capsBuyCost" class="inp num"></div>
+      <div class="field"><label>Date</label><input type="date" id="capsBuyDate" class="inp"></div>
+      <div class="field" style="display:flex;align-items:flex-end"><button class="btn pri block" onclick="Inventory.buyCaps()">＋ Add purchase</button></div>
+    </div>
+    <div class="field" style="margin-top:12px;max-width:240px"><label>Warn me when caps reach</label><input type="number" id="capsReorder" class="inp num" value="100" onchange="Inventory.saveReorder()"></div>
+    <p class="mini" style="margin-top:8px">Every bottle delivered on a route or filled at the plant uses one cap — counted automatically. Adding a cost also records it under Expenses.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">🛢️</span> Bottle pool (19L returnable)</h3><span id="poolStatus" class="pill">—</span></div>
+    <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+      <div class="stat blue"><div class="lbl">Total owned</div><div class="val num" id="poolOwned">0</div></div>
+      <div class="stat amber"><div class="lbl">With customers</div><div class="val num" id="poolOut">0</div></div>
+      <div class="stat"><div class="lbl">In plant</div><div class="val num" id="poolPlant">0</div></div>
+      <div class="stat red"><div class="lbl">Damaged / lost</div><div class="val num" id="poolDmg">0</div></div>
+    </div>
+    <div id="poolWarn"></div>
+    <div class="grid g3">
+      <div class="field"><label>Total bottles you own</label><input type="number" id="poolOwnedInput" class="inp num" onchange="Inventory.saveOwned()"></div>
+      <div class="field"><label>Buy more bottles (qty)</label><input type="number" id="poolBuyQty" class="inp num" placeholder="0"></div>
+      <div class="field" style="display:flex;align-items:flex-end"><button class="btn pri block" onclick="Inventory.buyBottles()">＋ Add to fleet</button></div>
+    </div>
+    <div class="grid g2" style="margin-top:10px">
+      <div class="field"><label>Log damaged / lost bottles</label><input type="number" id="poolDmgQty" class="inp num" placeholder="0"></div>
+      <div class="field" style="display:flex;align-items:flex-end"><button class="btn ghost block" onclick="Inventory.logDamage()">Log damage</button></div>
+    </div>
+    <p class="mini" style="margin-top:8px">"With customers" = total empties held across all clients. "In plant" = owned − with customers − damaged. Route damage is added automatically.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">📦</span> Other stock items</h3></div>
+    <div class="grid g3" style="margin-bottom:12px">
+      <div class="field"><label>Item name</label><input type="text" id="itemName" class="inp" placeholder="e.g. Labels, 500ml caps"></div>
+      <div class="field"><label>Quantity</label><input type="number" id="itemQty" class="inp num" value="0"></div>
+      <div class="field"><label>Warn at</label><input type="number" id="itemReorder" class="inp num" value="0"></div>
+    </div>
+    <button class="btn pri" onclick="Inventory.addItem()">＋ Add item</button>
+    <div class="tw" style="margin-top:14px"><table>
+      <thead><tr><th>Item</th><th>On hand</th><th class="r-money">Warn at</th><th>Status</th><th></th></tr></thead>
+      <tbody id="itemsTable"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<section id="data" class="view">
+  <div class="page-h"><h2>Data &amp; Backup</h2><p>Your data lives on this device. Back it up regularly.</p></div>
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">🔒</span> App lock (PIN)</h3></div>
+    <p class="mini" style="margin-bottom:14px">A PIN is asked when each app opens, so only you and your driver can get in. Changes sync to all your devices. (The admin PIN protects this app; the driver PIN protects the driver app.)</p>
+    <div class="grid g2" style="margin-bottom:12px">
+      <div class="field"><label>Admin PIN (this app)</label><input type="text" id="secAdminPin" class="inp num" inputmode="numeric" placeholder="1218"></div>
+      <div class="field"><label>Driver app PIN</label><input type="text" id="secDriverPin" class="inp num" inputmode="numeric" placeholder="0000"></div>
+    </div>
+    <div class="row-actions">
+      <button class="btn pri" onclick="Lock.savePins()">Save PINs</button>
+      <button class="btn ghost" onclick="Lock.lock()">🔒 Lock now</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">💾</span> Backup &amp; restore</h3></div>
+    <p class="mini" style="margin-bottom:14px">Download a snapshot of everything (clients, routes, invoices, expenses). Restoring overwrites current data — back up first.</p>
+    <div class="row-actions">
+      <button class="btn pri" onclick="DataTab.backup()">⬇️ Download backup</button>
+      <label class="btn ghost" style="cursor:pointer">⬆️ Restore<input type="file" accept=".json" style="display:none" onchange="DataTab.restore(this)"></label>
+      <button class="btn danger" onclick="DataTab.reset()">Reset all data</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">☁️</span> Cloud sync (Supabase)</h3><span id="cloudPanelStatus" class="pill">—</span></div>
+    <p class="mini" style="margin-bottom:14px">Keeps this app in sync across your laptop and phone, and is the backbone for the driver app. Your data stays in <b>your own</b> Supabase project.</p>
+    <div class="grid g2" style="margin-bottom:12px">
+      <div class="field" style="grid-column:1/-1"><label>Project URL</label><input type="text" id="cloudUrl" class="inp" placeholder="https://xxxx.supabase.co"></div>
+      <div class="field" style="grid-column:1/-1"><label>Publishable key (sb_publishable_…)</label><input type="text" id="cloudKey" class="inp" placeholder="sb_publishable_..."></div>
+    </div>
+    <div class="row-actions">
+      <button class="btn pri" onclick="Cloud.saveAndConnect()">🔌 Connect &amp; sync</button>
+      <button class="btn ghost" onclick="Cloud.syncNow(true)">🔄 Sync now</button>
+      <button class="btn ghost" onclick="Cloud.disconnect()">Disconnect</button>
+    </div>
+    <div id="cloudInfo" class="mini" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">🧪</span> Sample data</h3></div>
+    <p class="mini" style="margin-bottom:12px">New here? Load a few sample clients to try the route sheet and invoices.</p>
+    <button class="btn ghost" onclick="DataTab.loadSample()">Load sample clients</button>
+  </div>
+</section>
+
+</main>
+
+<!-- ===== New client (from route sheet) modal ===== -->
+<div class="overlay" id="newClientModal">
+  <div class="modal">
+    <div class="modal-h"><h3>＋ Add new client</h3><button class="x" onclick="RouteSheet.closeNewClient()">×</button></div>
+    <div class="modal-b">
+      <div class="grid g2">
+        <div class="field" style="grid-column:1/-1"><label>Name</label><input type="text" id="nc-name" class="inp" placeholder="e.g. Hamza"></div>
+        <div class="field"><label>Billing type</label><select id="nc-type" class="inp"><option value="Daily">Daily (cash)</option><option value="Monthly">Monthly (invoiced)</option></select></div>
+        <div class="field"><label>Rate per bottle (PKR)</label><input type="number" id="nc-rate" class="inp num" value="120"></div>
+        <div class="field"><label>Area / Zone</label><input type="text" id="nc-zone" class="inp" placeholder="optional"></div>
+        <div class="field"><label>Phone</label><input type="text" id="nc-phone" class="inp" placeholder="optional"></div>
+        <div class="field" style="grid-column:1/-1"><label>Address</label><input type="text" id="nc-addr" class="inp" placeholder="delivery address"></div>
+      </div>
+      <p class="mini" style="margin-top:10px">Saved once — the rate auto-fills on every future delivery, so you never retype it.</p>
+    </div>
+    <div class="modal-f">
+      <button class="btn ghost" onclick="RouteSheet.closeNewClient()">Cancel</button>
+      <button class="btn pri" onclick="RouteSheet.saveNewClient()">Save &amp; add to route</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Add-to-route modal ===== -->
+<div class="overlay" id="routeAddModal">
+  <div class="modal">
+    <div class="modal-h"><h3 id="ram-name">Client</h3><button class="x" onclick="RouteSheet.closeAdd()">×</button></div>
+    <div class="modal-b">
+      <div id="ram-info" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px"></div>
+      <div class="grid g2">
+        <div class="field"><label>Quantity (bottles)</label><input type="number" id="ram-qty" class="inp num" value="0" min="0"></div>
+        <div class="field"><label>Rate (PKR)</label><input type="number" id="ram-rate" class="inp num"></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>💵 Total cash he gave you now</label><input type="number" id="ram-recv" class="inp num" value="0"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn ghost sm" style="flex:1" onclick="RouteSheet.setPay('bill')">Today's bill</button>
+        <button class="btn ghost sm" style="flex:1" onclick="RouteSheet.setPay('all')">Bill + clear old</button>
+        <button class="btn ghost sm" style="flex:1" onclick="RouteSheet.setPay('none')">⛔ Nothing</button>
+      </div>
+      <div id="ram-breakdown" style="margin-top:14px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px"></div>
+      <p class="mini" id="ram-hint" style="margin-top:10px"></p>
+    </div>
+    <div class="modal-f">
+      <button class="btn ghost" onclick="RouteSheet.closeAdd()">Cancel</button>
+      <button class="btn pri" onclick="RouteSheet.confirmAdd()">Add to route</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Payment modal ===== -->
+<div class="overlay" id="payModal">
+  <div class="modal">
+    <div class="modal-h"><h3>Record payment</h3><button class="x" onclick="Ledger.closePay()">×</button></div>
+    <div class="modal-b">
+      <input type="hidden" id="payClientId">
+      <div id="payInfo" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px"></div>
+      <div class="grid g2">
+        <div class="field"><label>Amount received (PKR)</label>
+          <input type="number" id="payAmount" class="inp num" oninput="Ledger.payPreview()">
+          <div class="row-actions" style="margin-top:6px"><button type="button" class="btn ghost sm" id="payFullBtn" onclick="Ledger.payFull()">Pay full balance</button></div>
+          <div id="payPreview" class="mini" style="margin-top:8px"></div>
+        </div>
+        <div class="field"><label>Date received</label>
+          <input type="date" id="payDate" class="inp">
+          <div class="row-actions" style="margin-top:6px"><button type="button" class="btn ghost sm" onclick="Ledger.setPayDate('today')">Today</button><button type="button" class="btn ghost sm" onclick="Ledger.setPayDate('yesterday')">Yesterday</button></div>
+        </div>
+        <div class="field"><label>How received</label>
+          <select id="payMethod" class="inp"><option>Cash</option><option>Online / Bank</option><option>Via owner</option><option>Other</option></select>
+        </div>
+        <div class="field"><label>Note (optional)</label><input type="text" id="payNote" class="inp" placeholder="e.g. late night transfer"></div>
+      </div>
+      <p class="mini" style="margin-top:10px">Got the money late, or on another day? Just set the real <b>date received</b> (tap “Yesterday” for an 11&nbsp;pm payment you're entering next morning) — it slots into that day by itself, nothing to reopen.</p>
+    </div>
+    <div class="modal-f">
+      <button class="btn ghost" onclick="Ledger.closePay()">Cancel</button>
+      <button class="btn pri" onclick="Ledger.savePay()">Save payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Reminder (WhatsApp) message modal ===== -->
+<div class="overlay" id="remindModal">
+  <div class="modal">
+    <div class="modal-h"><h3>💬 Reminder message</h3><button class="x" onclick="Collections.closeMsg()">×</button></div>
+    <div class="modal-b">
+      <p class="mini" style="margin-bottom:8px">Auto-written for you. <b>Copy it</b> and paste into WhatsApp yourself — nothing is sent automatically.</p>
+      <textarea id="remindText" class="inp" style="width:100%;min-height:130px;resize:vertical;line-height:1.5"></textarea>
+    </div>
+    <div class="modal-f">
+      <button class="btn ghost" onclick="Collections.openWa()">Open WhatsApp chat</button>
+      <button class="btn pri" onclick="Collections.copyMsg()">📋 Copy message</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Invoice modal ===== -->
+<div class="overlay" id="invModal">
+  <div class="modal wide">
+    <div class="modal-h no-print"><h3>Invoice</h3><button class="x" onclick="Invoices.closeModal()">×</button></div>
+    <div class="modal-b"><div id="invoiceSheet"></div></div>
+    <div class="modal-f no-print">
+      <button class="btn ghost" id="invDelBtn" onclick="Invoices.del()">🗑️ Delete</button>
+      <button class="btn ghost" id="invEditBtn" onclick="Invoices.toggleEdit()">✏️ Edit</button>
+      <button class="btn ghost" id="invPayBtn" onclick="Invoices.recordPay()">💰 Record payment</button>
+      <button class="btn pri no-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Confirm modal ===== -->
+<div class="overlay" id="confirmModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-h"><h3 id="confirmTitle">Are you sure?</h3></div>
+    <div class="modal-b"><p id="confirmMsg" class="mini"></p></div>
+    <div class="modal-f">
+      <button class="btn ghost" onclick="UI.closeConfirm()">Cancel</button>
+      <button class="btn pri" id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================================================================
+   AQUA PACK — Water Delivery ERP  (single-file, local-first)
+   Clean modular build. All data in one `state` object, saved to
+   localStorage on every change. Modules never touch the DOM of others.
+   =================================================================== */
+'use strict';
+
+/* ---------- state ---------- */
+const KEY = 'aquapack_v1';
+let state = {
+  clients: [], routes: [], payments: [], invoices: [], expenses: [], fillings: [],
+  fillRate: 35,
+  stock: { capsCount: 0, capsCountDate: '', capsReorder: 100, capsCost: 0, bottlesOwned: 0, bottlesDamaged: 0, bottleCost: 0, purchases: [], items: [] },
+  security: { adminPin: '1218', driverPin: '0000' },
+  cashbook: [],
+  reminders: [],
+  inventory: { raw: 0, ready: 0, caps: 0, fillRate: 35 },
+  sizeRates: { '19 L': 120, '12 L': 90, '6 L': 60, '1.5 L': 50, '500 ml': 30 },
+  seq: { route: 1, invoice: 1 }
+};
+
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    const el = document.getElementById('saveState');
+    if (el) { el.textContent = 'Saved'; setTimeout(() => el.textContent = 'Saved locally', 1200); }
+  } catch (e) { console.error(e); toast('Could not save — storage full?', 'err'); }
+  try { Cloud.markDirty(); } catch (e) { /* Cloud not ready yet */ }
+}
+function trackDelete(table, id) {
+  state._del = state._del || {};
+  (state._del[table] = state._del[table] || []).push(String(id));
+  // permanent, cross-device tombstone so a deleted record can never be resurrected by another phone
+  state._tomb = state._tomb || {};
+  const _tl = (state._tomb[table] = state._tomb[table] || []);
+  if (!_tl.includes(String(id))) _tl.push(String(id));
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      state = Object.assign(state, s);
+      state.inventory = Object.assign({ raw: 0, ready: 0, caps: 0, fillRate: 35 }, s.inventory || {});
+      state.sizeRates = Object.assign(state.sizeRates, s.sizeRates || {});
+      state.seq = Object.assign({ route: 1, invoice: 1 }, s.seq || {});
+    }
+  } catch (e) { console.error('load failed', e); }
+}
+
+/* ---------- helpers ---------- */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+const pkr = n => 'PKR ' + Math.round(num(n)).toLocaleString('en-PK');
+function localDate(dt) {
+  const y = dt.getFullYear(), m = String(dt.getMonth() + 1).padStart(2, '0'), d = String(dt.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + d;
+}
+const today = () => localDate(new Date());
+const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return localDate(d); };
+const thisMonth = () => today().slice(0, 7);
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d + 'T00:00:00');
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function daysSince(d) {
+  if (!d) return 0;
+  return Math.floor((new Date(today()) - new Date(d)) / 86400000);
+}
+function getClient(id) { return state.clients.find(c => c.id === id) || null; }
+
+function toast(msg, type) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type === 'err' ? 'err' : type === 'plain' ? '' : 'ok');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.className = 'toast', 2600);
+}
+
+/* ---------- balance engine ----------
+   A client's outstanding balance =
+     opening balance
+   + every route row's "balance" (credit) added for them
+   − every payment recorded against them
+*/
+// filling helpers (old records stored only "amount" = fully paid; new ones store total + received)
+function fillTotal(f) { return num(f.total != null ? f.total : f.amount); }
+function fillRecv(f) { return num(f.received != null ? f.received : fillTotal(f)); }
+function fillBal(f) { return fillTotal(f) - fillRecv(f); }
+
+function clientBalance(id) {
+  const c = getClient(id); if (!c) return 0;
+  let bal = num(c.opening);
+  state.routes.forEach(r => (r.rows || []).forEach(row => {
+    if (row.clientId === id) bal += num(row.balance);
+  }));
+  state.fillings.forEach(f => { if (f.clientId === id) bal += fillBal(f); });
+  state.payments.forEach(p => { if (p.clientId === id) bal -= num(p.amount); });
+  return Math.round(bal);
+}
+// running balance from everything strictly BEFORE a date (for invoice "previous balance")
+function clientBalanceBefore(id, date) {
+  const c = getClient(id); if (!c) return 0;
+  let bal = num(c.opening);
+  state.routes.forEach(r => { if (!date || r.date < date) (r.rows || []).forEach(row => { if (row.clientId === id) bal += num(row.balance); }); });
+  state.fillings.forEach(f => { if (f.clientId === id && (!date || f.date < date)) bal += fillBal(f); });
+  state.payments.forEach(p => { if (p.clientId === id && (!date || p.date < date)) bal -= num(p.amount); });
+  return Math.round(bal);
+}
+function lastUnpaidDate(id) {
+  // earliest delivery date that contributed to an unpaid balance
+  let earliest = null;
+  state.routes.forEach(r => (r.rows || []).forEach(row => {
+    if (row.clientId === id && num(row.balance) > 0) {
+      if (!earliest || r.date < earliest) earliest = r.date;
+    }
+  }));
+  return earliest;
+}
+
+/* ============ MONTHLY BILLING ENGINE (period buckets + oldest-first payment allocation) ============ */
+const MON_ABBR = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function dim(y, m1) { return new Date(y, m1, 0).getDate(); } // m1 = 1-indexed month
+function billDayOf(c) { return Math.min(Math.max(num(c && c.billingDay) || 1, 1), 31); }
+function isMonthly(c) { return c && c.type === 'Monthly'; }
+function periodStartFor(dateStr, bd) {
+  const p = String(dateStr || '').split('-').map(Number); const Y = p[0], M = p[1], D = p[2];
+  if (!Y || !M) return { y: 2000, m: 1, d: 1 };
+  const anchorThis = Math.min(bd, dim(Y, M));
+  if (D >= anchorThis) return { y: Y, m: M, d: anchorThis };
+  let pm = M - 1, py = Y; if (pm < 1) { pm = 12; py--; }
+  return { y: py, m: pm, d: Math.min(bd, dim(py, pm)) };
+}
+function periodNextStart(s, bd) { let m = s.m + 1, y = s.y; if (m > 12) { m = 1; y++; } return { y, m, d: Math.min(bd, dim(y, m)) }; }
+function pStr(s) { return s.y + '-' + String(s.m).padStart(2, '0') + '-' + String(s.d).padStart(2, '0'); }
+function periodEndStr(s, bd) { const n = periodNextStart(s, bd); const d = new Date(n.y, n.m - 1, n.d); d.setDate(d.getDate() - 1); return localDate(d); }
+function periodLabel(s, bd) {
+  if (bd === 1) return MON_ABBR[s.m] + ' ' + s.y;
+  const e = new Date(periodEndStr(s, bd));
+  return String(s.d).padStart(2, '0') + ' ' + MON_ABBR[s.m] + ' – ' + String(e.getDate()).padStart(2, '0') + ' ' + MON_ABBR[e.getMonth() + 1] + ' ' + e.getFullYear();
+}
+// Full monthly statement: charges grouped into billing periods, payments allocated oldest-period-first.
+function srcKeyOf(it) { return it && it.src ? (it.src.type === 'route' ? 'r:' + it.src.rid : 'f:' + it.src.fillId) : ''; }
+// INVOICE-DRIVEN book: receivables = opening + issued invoices; payments clear oldest first;
+// deliveries not on any invoice are "unbilled" and roll onto the next invoice.
+function monthlyBook(id) {
+  const c = getClient(id);
+  const empty = { receivables: [], invoices: [], unbilled: [], overdue: 0, accruing: 0, advance: 0, overdueSince: null };
+  if (!c) return empty;
+  const invs = state.invoices.filter(iv => iv.clientId === id).slice()
+    .sort((a, b) => (a.from || a.issueDate || '').localeCompare(b.from || b.issueDate || '') || (a.issueDate || '').localeCompare(b.issueDate || ''));
+  const billed = new Set();
+  invs.forEach(iv => (iv.items || []).forEach(it => { const k = srcKeyOf(it); if (k) billed.add(k); }));
+
+  const recv = [];
+  if (num(c.opening) !== 0) recv.push({ kind: 'opening', label: 'Opening balance', date: c.createdAt || '2000-01-01', owed: num(c.opening), cash: 0, gross: num(c.opening), allocated: 0, paidBy: [] });
+  invs.forEach(iv => {
+    const owed = (iv.items || []).reduce((s, it) => s + (num(it.total) - num(it.received)), 0);
+    const cash = (iv.items || []).reduce((s, it) => s + num(it.received), 0);
+    recv.push({ kind: 'invoice', inv: iv, label: iv.number, date: iv.from || iv.issueDate, owed, cash, gross: owed + cash, allocated: 0, paidBy: [] });
+  });
+
+  const pays = state.payments.filter(p => p.clientId === id).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  let pi = 0, left = pays.length ? num(pays[0].amount) : 0;
+  recv.forEach(r => {
+    let need = r.owed;
+    while (need > 1e-6 && pi < pays.length) {
+      const take = Math.min(need, left);
+      if (take > 1e-6) r.paidBy.push({ date: pays[pi].date, amount: take, payId: pays[pi].id, note: pays[pi].note || '', method: pays[pi].method || '' });
+      r.allocated += take; need -= take; left -= take;
+      if (left <= 1e-6) { pi++; left = pi < pays.length ? num(pays[pi].amount) : 0; }
+    }
+    r.unpaid = Math.round(r.owed - r.allocated);
+    r.status = r.owed <= 0 ? 'none' : (r.unpaid <= 0 ? 'cleared' : (r.allocated > 0 ? 'partial' : 'unpaid'));
+  });
+  const advance = Math.round(left + pays.slice(pi + 1).reduce((s, p) => s + num(p.amount), 0));
+  let running = 0;
+  recv.forEach(r => { r.prevBalance = running; running += r.unpaid; });
+
+  const unbilled = [];
+  state.routes.forEach(rt => (rt.rows || []).forEach(row => {
+    if (row.clientId === id) { const k = 'r:' + (row.rid || ''); if (!row.rid || !billed.has(k)) unbilled.push({ date: rt.date, total: num(row.total), received: num(row.received), qty: num(row.qty), driver: rt.driver || '', kind: 'deliver' }); }
+  }));
+  state.fillings.forEach(f => { if (f.clientId === id) { const k = 'f:' + f.id; if (!billed.has(k)) unbilled.push({ date: f.date, total: fillTotal(f), received: fillRecv(f), qty: num(f.qty), kind: 'fill' }); } });
+  unbilled.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const accruing = Math.round(unbilled.reduce((s, u) => s + (u.total - u.received), 0));
+  const overdue = recv.reduce((s, r) => s + Math.max(0, r.unpaid), 0);
+  const firstUnpaid = recv.find(r => r.unpaid > 0);
+  const overdueSince = firstUnpaid ? (firstUnpaid.inv ? (firstUnpaid.inv.issueDate || firstUnpaid.inv.from) : firstUnpaid.date) : null;
+  return { receivables: recv, invoices: invs, unbilled, overdue, accruing, advance, overdueSince };
+}
+
+
+/* ---------- UI: confirm + navigation ---------- */
+const UI = {
+  confirm(title, msg, onOk) {
+    $('confirmTitle').textContent = title;
+    $('confirmMsg').textContent = msg;
+    const btn = $('confirmOk');
+    btn.onclick = () => { this.closeConfirm(); onOk(); };
+    $('confirmModal').classList.add('show');
+  },
+  closeConfirm() { $('confirmModal').classList.remove('show'); }
+};
+
+function switchView(name) {
+  // unsaved route guard
+  if (name !== 'route' && RouteSheet.isDirty()) {
+    UI.confirm('Leave route sheet?',
+      'You have an unsaved route sheet. Leaving keeps it as a draft — it will still be here when you come back.',
+      () => doSwitch(name));
+    return;
+  }
+  doSwitch(name);
+}
+function doSwitch(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  $(name).classList.add('active');
+  document.querySelector('.tab[data-view="' + name + '"]').classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const r = { dashboard: () => Dashboard.render(), clients: () => Clients.renderList(),
+    invoices: () => Invoices.renderList(), expenses: () => Expenses.render(),
+    filling: () => Filling.render(), inventory: () => Inventory.render(), route: () => RouteSheet.renderArchive(),
+    checks: () => AccountsCheck.render(), collections: () => Collections.render(), ledger: () => Ledger.renderList() };
+  if (r[name]) r[name]();
+}
+
+/* ---------- generic autocomplete over clients ----------
+   attach(inputId, listId, onPick, {allowNew})
+*/
+function clientAutocomplete(inputId, listId, onPick, opts) {
+  opts = opts || {};
+  const input = $(inputId), list = $(listId);
+  let hl = -1, items = [];
+  function close() { list.classList.remove('show'); list.innerHTML = ''; hl = -1; }
+  function render(q) {
+    q = q.trim().toLowerCase();
+    items = state.clients
+      .filter(c => !q || c.name.toLowerCase().includes(q) || (c.zone || '').toLowerCase().includes(q) || (c.phone || '').includes(q))
+      .slice(0, 8);
+    let html = items.map((c, i) => {
+      const bal = clientBalance(c.id);
+      const balTxt = bal > 0 ? '<span class="bdg bal">' + pkr(bal) + ' due</span>' : '<span class="bdg paid">clear</span>';
+      return '<div class="ac-item" data-i="' + i + '"><div><div class="nm">' + esc(c.name) +
+        ' <span class="bdg ' + (c.type === 'Monthly' ? 'monthly' : 'daily') + '">' + c.type + '</span></div>' +
+        '<div class="meta">' + esc(c.zone || 'No area') + ' · ' + pkr(c.rate) + '/bottle</div></div>' + balTxt + '</div>';
+    }).join('');
+    if (opts.allowNew && q && !items.some(c => c.name.toLowerCase() === q)) {
+      html += '<div class="ac-item ac-add" data-new="1">＋ Add new client "' + esc(input.value.trim()) + '"</div>';
+    }
+    if (!html) html = '<div class="ac-item" style="color:var(--ink-faint)">No clients found</div>';
+    list.innerHTML = html;
+    list.classList.add('show');
+    list.querySelectorAll('.ac-item').forEach(el => {
+      el.onclick = () => {
+        if (el.dataset.new) { onPick(null, input.value.trim()); }
+        else if (el.dataset.i != null) onPick(items[+el.dataset.i]);
+        close();
+      };
+    });
+  }
+  input.addEventListener('input', () => render(input.value));
+  input.addEventListener('focus', () => { if (input.value || state.clients.length) render(input.value); });
+  input.addEventListener('keydown', e => {
+    const els = list.querySelectorAll('.ac-item');
+    if (e.key === 'ArrowDown') { e.preventDefault(); hl = Math.min(hl + 1, els.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); hl = Math.max(hl - 1, 0); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (els[hl]) els[hl].click(); return; }
+    else if (e.key === 'Escape') { close(); return; }
+    els.forEach((el, i) => el.classList.toggle('hl', i === hl));
+  });
+  document.addEventListener('click', e => { if (!input.contains(e.target) && !list.contains(e.target)) close(); });
+}
+
+/* ====================== DASHBOARD ====================== */
+const Dashboard = {
+  range: 'all', pickedMonth: '',
+  setRange(r, btn) {
+    this.range = r;
+    if ($('dashMonth')) $('dashMonth').value = '';   // clear month picker when using quick buttons
+    document.querySelectorAll('#dashSeg button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    this.render();
+  },
+  pickMonth(val) {
+    if (!val) { this.setRange('all', document.querySelector('#dashSeg button')); return; }
+    this.range = 'pickmonth'; this.pickedMonth = val;
+    document.querySelectorAll('#dashSeg button').forEach(b => b.classList.remove('active'));
+    this.render();
+  },
+  inRange(date) {
+    if (this.range === 'all') return true;
+    if (this.range === 'month') return date && date.slice(0, 7) === thisMonth();
+    if (this.range === 'pickmonth') return date && date.slice(0, 7) === this.pickedMonth;
+    if (this.range === 'day') return date === today();
+    return true;
+  },
+  renderCollectedToday() {
+    const t = today();
+    if ($('ctDate')) $('ctDate').textContent = '(' + fmtDate(t) + ')';
+    const map = {};
+    state.routes.forEach(r => { if (r.date === t) (r.rows || []).forEach(row => { if (num(row.received) > 0) { const m = map[row.clientId] || (map[row.clientId] = { name: row.name, today: 0, old: 0 }); m.today += num(row.received); } }); });
+    state.payments.forEach(p => { if (p.date === t) { const c = getClient(p.clientId); const m = map[p.clientId] || (map[p.clientId] = { name: (c && c.name) || '—', today: 0, old: 0 }); m.old += num(p.amount); } });
+    const list = Object.values(map).filter(m => (m.today + m.old) > 0).sort((a, b) => (b.today + b.old) - (a.today + a.old));
+    const total = list.reduce((s, m) => s + m.today + m.old, 0);
+    if ($('ctTotal')) $('ctTotal').textContent = pkr(total);
+    const body = $('ctList'); if (!body) return;
+    if (!list.length) { body.innerHTML = '<div class="mini" style="color:var(--ink-faint);padding:4px 0">No money collected yet today.</div>'; return; }
+    body.innerHTML = list.map(m => {
+      const parts = [];
+      if (m.today > 0) parts.push(pkr(m.today) + ' for today\u2019s bottles');
+      if (m.old > 0) parts.push(pkr(m.old) + ' old balance');
+      return '<div class="flexspace" style="padding:9px 0;border-bottom:1px solid var(--line)"><div><b>' + esc(m.name) + '</b><div class="mini">' + parts.join(' + ') + '</div></div><b class="num" style="color:var(--green);white-space:nowrap">' + pkr(m.today + m.old) + '</b></div>';
+    }).join('');
+  },
+  render() {
+    try { Reminders.render(); } catch (e) {}
+    try { this.renderCollectedToday(); } catch (e) {}
+    const note = { all: 'Showing all-time totals', month: 'Showing ' + fmtDate(thisMonth() + '-01').replace(/\d+ /, ''), day: 'Showing today, ' + fmtDate(today()) };
+    let noteTxt = note[this.range] || '';
+    if (this.range === 'pickmonth' && this.pickedMonth) noteTxt = 'Showing ' + new Date(this.pickedMonth + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    $('dashRangeNote').textContent = noteTxt;
+
+    let sales = 0, bottles = 0, cash = 0;
+    state.routes.forEach(r => {
+      if (!this.inRange(r.date)) return;
+      (r.rows || []).forEach(row => { sales += num(row.total); bottles += num(row.qty); cash += num(row.received); });
+    });
+    // plant filling income (walk-ins / fillers) — cash counts only what was received
+    let fillAmt = 0, fillCash = 0, fillQty = 0;
+    state.fillings.forEach(f => { if (this.inRange(f.date)) { fillAmt += fillTotal(f); fillCash += fillRecv(f); fillQty += num(f.qty); } });
+    sales += fillAmt; cash += fillCash; bottles += fillQty;
+    // separate payments received (late transfers, old-balance collections) — counted by the date received
+    let collected = 0;
+    state.payments.forEach(p => { if (this.inRange(p.date)) collected += num(p.amount); });
+    cash += collected;
+    let exp = 0;
+    state.expenses.forEach(e => { if (this.inRange(e.date)) exp += num(e.amount); });
+    // route fuel/food/other count as expenses too
+    state.routes.forEach(r => { if (this.inRange(r.date)) exp += num(r.fuel) + num(r.food) + num(r.other); });
+
+    const outstanding = state.clients.reduce((s, c) => s + Math.max(0, clientBalance(c.id)), 0);
+    const profit = sales - exp;
+
+    $('dSales').textContent = pkr(sales);
+    $('dSalesSub').textContent = state.routes.filter(r => this.inRange(r.date)).length + ' route(s)' + (fillAmt ? ' + filling' : '');
+    $('dBottles').textContent = bottles.toLocaleString();
+    $('dCash').textContent = pkr(cash);
+    $('dExp').textContent = pkr(exp);
+    $('dBal').textContent = pkr(outstanding);
+    $('dProfit').textContent = pkr(profit);
+    $('dProfit').style.color = profit >= 0 ? 'var(--green)' : 'var(--red)';
+
+    this.renderToday();
+    this.renderFollowup();
+    this.renderTopOut();
+    try {
+      const low = Inventory.lowStock();
+      $('dashStockAlert').innerHTML = low.length
+        ? '<div class="card" style="background:var(--amber-l);border-color:var(--amber);margin-bottom:16px"><div class="flexspace"><div><b style="color:var(--amber)">⚠ Low stock</b> <span class="mini">' + low.join(' · ') + '</span></div><button class="btn ghost sm" onclick="switchView(\'inventory\')">Open inventory</button></div></div>'
+        : '';
+    } catch (e) {}
+    if (!$('plMonth').value) $('plMonth').value = thisMonth();
+    this.renderPL();
+  },
+  renderToday() {
+    const r = state.routes.find(x => x.date === today());
+    const box = $('todayDeliveries');
+    if (!r || !(r.rows || []).length) {
+      $('todayCount').textContent = '0';
+      box.innerHTML = '<div class="empty"><span class="ic">📭</span>No route logged for today yet</div>';
+      return;
+    }
+    $('todayCount').textContent = r.rows.length + ' stops';
+    box.innerHTML = '<div class="tw"><table><thead><tr><th>Client</th><th>Qty</th><th class="r-money">Cash</th></tr></thead><tbody>' +
+      r.rows.map(row => '<tr><td>' + esc(row.name) + '</td><td>' + row.qty + '</td><td class="r-money">' + pkr(row.received) + '</td></tr>').join('') +
+      '</tbody></table></div>';
+  },
+  renderFollowup() {
+    const box = $('followupList');
+    const rows = state.clients.map(c => ({ c, bal: clientBalance(c.id), since: lastUnpaidDate(c.id) }))
+      .filter(x => x.bal > 0 && x.since && daysSince(x.since) >= 7)
+      .sort((a, b) => daysSince(b.since) - daysSince(a.since));
+    if (!rows.length) { box.innerHTML = '<div class="empty"><span class="ic">✅</span>Nobody overdue. Nice and clean.</div>'; return; }
+    box.innerHTML = '<div class="tw"><table><thead><tr><th>Client</th><th>Overdue</th><th class="r-money">Balance</th></tr></thead><tbody>' +
+      rows.map(x => '<tr><td><span class="dotwarn"></span> ' + esc(x.c.name) + '</td><td>' + daysSince(x.since) + ' days</td><td class="r-money money-bal">' + pkr(x.bal) + '</td></tr>').join('') +
+      '</tbody></table></div>';
+  },
+  renderTopOut() {
+    const rows = state.clients.map(c => ({ c, bal: clientBalance(c.id) })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal).slice(0, 8);
+    const body = $('topOutBody');
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="empty">No outstanding balances 🎉</td></tr>'; return; }
+    body.innerHTML = rows.map(x =>
+      '<tr><td>' + esc(x.c.name) + '</td><td class="hide-sm">' + esc(x.c.zone || '—') + '</td>' +
+      '<td><span class="bdg ' + (x.c.type === 'Monthly' ? 'monthly' : 'daily') + '">' + x.c.type + '</span></td>' +
+      '<td class="r-money money-bal">' + pkr(x.bal) + '</td>' +
+      '<td><button class="btn ghost sm" onclick="Ledger.open(\'' + x.c.id + '\')">Open</button></td></tr>').join('');
+  },
+  renderPL() {
+    const m = $('plMonth').value || thisMonth();
+    const inM = d => d && d.slice(0, 7) === m;
+    let revenue = 0, bottles = 0;
+    state.routes.forEach(r => { if (inM(r.date)) (r.rows || []).forEach(row => { revenue += num(row.total); bottles += num(row.qty); }); });
+    let fillRev = 0, fillQ = 0;
+    state.fillings.forEach(f => { if (inM(f.date)) { fillRev += fillTotal(f); fillQ += num(f.qty); } });
+    const totalRev = revenue + fillRev;
+    // expenses by category
+    const cat = {};
+    state.expenses.forEach(e => { if (inM(e.date)) cat[e.category] = (cat[e.category] || 0) + num(e.amount); });
+    let routeCost = 0;
+    state.routes.forEach(r => { if (inM(r.date)) routeCost += num(r.fuel) + num(r.food) + num(r.other); });
+    if (routeCost) cat['Route fuel/food/other'] = (cat['Route fuel/food/other'] || 0) + routeCost;
+    const totalExp = Object.values(cat).reduce((a, b) => a + b, 0);
+    const net = totalRev - totalExp;
+    const catRows = Object.entries(cat).sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => '<tr><td style="padding-left:20px">' + esc(k) + '</td><td class="r-money money-neg">(' + pkr(v) + ')</td></tr>').join('')
+      || '<tr><td colspan="2" class="mini" style="padding-left:20px">No expenses logged</td></tr>';
+    $('plBody').innerHTML = '<div class="tw"><table>' +
+      '<tr><td style="padding-left:20px">Bottle deliveries (' + bottles + ')</td><td class="r-money money-pos">' + pkr(revenue) + '</td></tr>' +
+      (fillRev ? '<tr><td style="padding-left:20px">Plant filling (' + fillQ + ')</td><td class="r-money money-pos">' + pkr(fillRev) + '</td></tr>' : '') +
+      '<tr style="border-top:1px solid var(--line)"><td><b>Total revenue</b></td><td class="r-money money-pos"><b>' + pkr(totalRev) + '</b></td></tr>' +
+      '<tr><td colspan="2" style="background:var(--surface-2);font-weight:700;font-size:11px;text-transform:uppercase;color:var(--ink-soft)">Expenses</td></tr>' +
+      catRows +
+      '<tr style="border-top:2px solid var(--line)"><td><b>Total expenses</b></td><td class="r-money money-neg"><b>(' + pkr(totalExp) + ')</b></td></tr>' +
+      '<tr style="background:var(--ink);color:#fff"><td><b>Net profit</b></td><td class="r-money"><b>' + pkr(net) + '</b></td></tr>' +
+      '</table></div>';
+  },
+
+  /* ---- Owner-ready monthly report (print / save as PDF) ---- */
+  monthlyReport() {
+    const m = ($('plMonth') && $('plMonth').value) || thisMonth();
+    const inM = d => d && d.slice(0, 7) === m;
+    const monthLabel = new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+    // --- revenue + operations + route expenses ---
+    let billRev = 0, bottles = 0, billCash = 0, routesRun = 0, routeCost = 0;
+    const deliveryDays = {}, clientsServed = {};
+    state.routes.forEach(r => {
+      if (!inM(r.date)) return;
+      if ((r.rows || []).length) { routesRun++; deliveryDays[r.date] = 1; }
+      routeCost += num(r.fuel) + num(r.food) + num(r.other);
+      (r.rows || []).forEach(row => {
+        billRev += num(row.total); bottles += num(row.qty); billCash += num(row.received);
+        if (row.clientId) clientsServed[row.clientId] = 1;
+      });
+    });
+    let fillRev = 0, fillQ = 0, fillCash = 0;
+    state.fillings.forEach(f => { if (inM(f.date)) { fillRev += fillTotal(f); fillQ += num(f.qty); fillCash += fillRecv(f); } });
+    const totalRev = billRev + fillRev;
+
+    // --- cash position (physical cash in hand) ---
+    // old balances collected ON a route are stored as payments tagged src:'route';
+    // everything else (manual transfers / counter collections) is non-route.
+    let routeOldColl = 0, otherPay = 0;
+    state.payments.forEach(p => {
+      if (!inM(p.date)) return;
+      if (p.src === 'route') routeOldColl += num(p.amount); else otherPay += num(p.amount);
+    });
+    const routeCashCollected = billCash + routeOldColl;     // total cash the driver collected on routes
+    const handover = routeCashCollected - routeCost;        // what driver actually hands over (minus if route ran at a loss)
+    const cashInHand = handover + fillCash + otherPay;      // total net cash that reached you this month
+    const creditGiven = (billRev - billCash) + (fillRev - fillCash);
+
+    // --- expenses by category (incl. route costs) ---
+    const cat = {};
+    state.expenses.forEach(e => { if (inM(e.date)) cat[e.category] = (cat[e.category] || 0) + num(e.amount); });
+    if (routeCost) cat['Route fuel / food / other'] = (cat['Route fuel / food / other'] || 0) + routeCost;
+    const totalExp = Object.values(cat).reduce((a, b) => a + b, 0);
+    const net = totalRev - totalExp;
+    const margin = totalRev ? Math.round(net / totalRev * 100) : 0;
+
+    // --- collections: money actually received this month ---
+    const collected = billCash + routeOldColl + fillCash + otherPay;   // every rupee that came in during M
+    const collectRate = totalRev ? Math.round(collected / totalRev * 100) : 0;
+
+    // --- who still owes (month-aware): monthly clients -> unpaid invoices; daily -> running balance ---
+    const defRows = [];
+    state.clients.forEach(c => {
+      const owed = isMonthly(c) ? monthlyBook(c.id).overdue : clientBalance(c.id);
+      if (owed > 0) {
+        let since = null;
+        if (isMonthly(c)) { const s = monthlyBook(c.id).overdueSince; since = s ? daysSince(s) : 0; }
+        else since = Collections.ageDays(c.id);
+        defRows.push({ c, bal: owed, days: since });
+      }
+    });
+    defRows.sort((a, b) => b.bal - a.bal);
+    const totalOut = defRows.reduce((s, x) => s + x.bal, 0);
+
+    // --- derived stats ---
+    const activeDays = Object.keys(deliveryDays).length;
+    const avgDay = activeDays ? totalRev / activeDays : 0;
+    const clientCount = Object.keys(clientsServed).length;
+
+    const td = 'padding:7px 10px;border:1px solid #e2e8f0';
+    const tdR = td + ';text-align:right;font-variant-numeric:tabular-nums';
+    const th = 'padding:8px 10px;border:1px solid #e2e8f0;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#475569;background:#f1f5f9';
+
+    const expRows = Object.entries(cat).sort((a, b) => b[1] - a[1]).map(([k, v]) => {
+      const pct = totalExp ? Math.round(v / totalExp * 100) : 0;
+      return '<tr><td style="' + td + '">' + esc(k) + '</td><td style="' + tdR + ';color:#64748b">' + pct + '%</td><td style="' + tdR + ';color:#c0392b">' + pkr(v) + '</td></tr>';
+    }).join('') || '<tr><td colspan="3" style="' + td + ';color:#94a3b8;text-align:center">No expenses logged this month</td></tr>';
+
+    const outTable = defRows.length
+      ? '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">' +
+        '<thead><tr><th style="' + th + '">Client</th><th style="' + th + ';text-align:left">Area</th><th style="' + th + ';text-align:left">Phone</th><th style="' + th + ';text-align:right">Owes</th><th style="' + th + ';text-align:right">Overdue</th></tr></thead><tbody>' +
+        defRows.map(x => '<tr><td style="' + td + '">' + esc(x.c.name) + (isMonthly(x.c) ? ' <span style="font-size:9px;color:#0e7c9a">(M)</span>' : '') + '</td><td style="' + td + ';color:#64748b">' + esc(x.c.zone || '—') + '</td><td style="' + td + ';color:#64748b">' + esc(x.c.phone || '—') + '</td><td style="' + tdR + ';color:#b45309;font-weight:700">' + pkr(x.bal) + '</td><td style="' + tdR + ';color:#64748b">' + x.days + 'd</td></tr>').join('') +
+        '<tr style="background:#f1f5f9;font-weight:800"><td style="' + td + '" colspan="3">Total still to collect (' + defRows.length + ' clients)</td><td style="' + tdR + ';color:#b45309">' + pkr(totalOut) + '</td><td style="' + td + '"></td></tr>' +
+        '</tbody></table>'
+      : '<div style="font-size:12px;color:#16a34a;padding:6px 0">No outstanding balances — all clear. 🎉</div>';
+
+    const netColor = net >= 0 ? '#16a34a' : '#c0392b';
+    const statBox = (label, val, color) =>
+      '<div style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#fff">' +
+      '<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:700">' + label + '</div>' +
+      '<div style="font-size:20px;font-weight:800;margin-top:4px;color:' + (color || '#0f2230') + '">' + val + '</div></div>';
+
+    const opItem = (label, val) =>
+      '<div style="border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px"><div style="font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;font-weight:700">' + label + '</div><div style="font-size:16px;font-weight:700;margin-top:3px">' + val + '</div></div>';
+
+    const html = '<div id="invoiceSheet">' +
+      '<div style="font-family:Inter,Arial,sans-serif;color:#0f2230;max-width:760px;margin:0 auto">' +
+
+      // header
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0e7c9a;padding-bottom:12px;margin-bottom:16px">' +
+        '<div><div style="font-size:22px;font-weight:800;color:#0e7c9a;letter-spacing:.02em">💧 AQUA PACK</div>' +
+        '<div style="font-size:14px;font-weight:700;margin-top:2px">Monthly Business Report</div></div>' +
+        '<div style="text-align:right;font-size:12px;color:#475569">' +
+        '<div style="font-size:16px;font-weight:800;color:#0f2230">' + monthLabel + '</div>' +
+        '<div style="margin-top:3px">Generated ' + fmtDate(today()) + '</div></div>' +
+      '</div>' +
+
+      // headline stats
+      '<div style="display:flex;gap:10px;margin-bottom:18px">' +
+        statBox('Total Revenue', pkr(totalRev), '#0e7c9a') +
+        statBox('Total Expenses', pkr(totalExp), '#c0392b') +
+        statBox('Net Profit (' + margin + '%)', pkr(net), netColor) +
+      '</div>' +
+
+      // revenue
+      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:6px">Revenue</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:16px">' +
+        '<thead><tr><th style="' + th + '">Source</th><th style="' + th + ';text-align:right">Qty</th><th style="' + th + ';text-align:right">Amount</th></tr></thead><tbody>' +
+        '<tr><td style="' + td + '">Bottle deliveries</td><td style="' + tdR + '">' + bottles.toLocaleString() + '</td><td style="' + tdR + ';color:#16a34a">' + pkr(billRev) + '</td></tr>' +
+        '<tr><td style="' + td + '">Plant filling</td><td style="' + tdR + '">' + fillQ.toLocaleString() + '</td><td style="' + tdR + ';color:#16a34a">' + pkr(fillRev) + '</td></tr>' +
+        '<tr style="background:#f1f5f9;font-weight:800"><td style="' + td + '">Total revenue</td><td style="' + tdR + '">' + (bottles + fillQ).toLocaleString() + '</td><td style="' + tdR + ';color:#0e7c9a">' + pkr(totalRev) + '</td></tr>' +
+        '</tbody></table>' +
+
+      // cash position
+      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:6px">Cash Position <span style="font-weight:600;color:#64748b;text-transform:none;letter-spacing:0">(physical cash in hand)</span></div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:8px">' +
+        '<tbody>' +
+        '<tr><td style="' + td + '">Route bottle cash collected</td><td style="' + tdR + '">' + pkr(billCash) + '</td></tr>' +
+        '<tr><td style="' + td + '">Old balances collected on route</td><td style="' + tdR + '">' + pkr(routeOldColl) + '</td></tr>' +
+        '<tr><td style="' + td + ';color:#c0392b">Less: route expenses (fuel / food / other)</td><td style="' + tdR + ';color:#c0392b">(' + pkr(routeCost) + ')</td></tr>' +
+        '<tr style="background:#f1f5f9;font-weight:800"><td style="' + td + '">Driver hands over (net)</td><td style="' + tdR + ';color:' + (handover >= 0 ? '#16a34a' : '#c0392b') + '">' + pkr(handover) + '</td></tr>' +
+        '<tr><td style="' + td + '">Plant filling cash</td><td style="' + tdR + '">' + pkr(fillCash) + '</td></tr>' +
+        '<tr><td style="' + td + '">Other transfers / collections</td><td style="' + tdR + '">' + pkr(otherPay) + '</td></tr>' +
+        '<tr style="background:#0f2230;color:#fff;font-weight:800"><td style="' + td + ';border-color:#0f2230">Total net cash in hand</td><td style="' + tdR + ';border-color:#0f2230;color:' + (cashInHand >= 0 ? '#4ade80' : '#f87171') + '">' + pkr(cashInHand) + '</td></tr>' +
+        '</tbody></table>' +
+      '<div style="font-size:11px;color:#64748b;margin-bottom:16px">Credit given this month (added to clients\u2019 outstanding, not yet received): <b style="color:#b45309">' + pkr(creditGiven) + '</b></div>' +
+
+      // collections this month
+      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:6px">Collections \u2014 ' + monthLabel + '</div>' +
+      '<div style="display:flex;gap:10px;margin-bottom:6px">' +
+        statBox('Money collected', pkr(collected), '#16a34a') +
+        statBox('Billed this month', pkr(totalRev), '#0e7c9a') +
+        statBox('Still to collect (now)', pkr(totalOut), '#b45309') +
+      '</div>' +
+      '<div style="font-size:11px;color:#64748b;margin-bottom:16px">Received <b>' + collectRate + '%</b> of what was billed this month. The full list of clients who still owe (with phone numbers) is at the bottom of this report.</div>' +
+
+      // expenses
+      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:6px">Expenses</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:16px">' +
+        '<thead><tr><th style="' + th + '">Category</th><th style="' + th + ';text-align:right">Share</th><th style="' + th + ';text-align:right">Amount</th></tr></thead><tbody>' +
+        expRows +
+        '<tr style="background:#f1f5f9;font-weight:800"><td style="' + td + '">Total expenses</td><td style="' + tdR + '"></td><td style="' + tdR + ';color:#c0392b">' + pkr(totalExp) + '</td></tr>' +
+        '</tbody></table>' +
+
+      // net profit banner
+      '<div style="display:flex;justify-content:space-between;align-items:center;background:#0f2230;color:#fff;border-radius:10px;padding:12px 16px;margin-bottom:18px">' +
+        '<div style="font-size:14px;font-weight:700">Net Profit for ' + monthLabel + '</div>' +
+        '<div style="font-size:22px;font-weight:800;color:' + (net >= 0 ? '#4ade80' : '#f87171') + '">' + pkr(net) + '</div>' +
+      '</div>' +
+
+      // operations
+      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:8px">Operations Summary</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px">' +
+        opItem('Bottles delivered', bottles.toLocaleString()) +
+        opItem('Filling bottles', fillQ.toLocaleString()) +
+        opItem('Routes run', String(routesRun)) +
+        opItem('Active delivery days', String(activeDays)) +
+        opItem('Clients served', String(clientCount)) +
+        opItem('Avg revenue / day', pkr(avgDay)) +
+      '</div>' +
+
+      // outstanding snapshot
+      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:4px">Clients Who Still Owe <span style="font-weight:600;color:#64748b;text-transform:none;letter-spacing:0">(unpaid, as of ' + fmtDate(today()) + ')</span></div>' +
+      '<div style="font-size:12.5px;color:#475569;margin-bottom:4px">Total still to collect across all clients: <b style="color:#b45309">' + pkr(totalOut) + '</b>. (M) = monthly client.</div>' +
+      outTable +
+
+      // footer / signatures
+      '<div style="display:flex;justify-content:space-between;margin-top:40px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:12px;color:#475569">' +
+        '<div>Prepared by: ____________________</div>' +
+        '<div>Reviewed by (Owner): ____________________</div>' +
+      '</div>' +
+      '<div style="text-align:center;font-size:10.5px;color:#94a3b8;margin-top:14px">Aqua Pack — Water Delivery &amp; Plant Operations · Report auto-generated from ERP records</div>' +
+
+      '</div></div>';
+
+    if (!totalRev && !totalExp && !routesRun) { toast('No data found for ' + monthLabel, 'err'); return; }
+    Invoices._printHtml(html, 'Aqua Pack Report — ' + monthLabel);
+  }
+};
+
+/* ====================== CLIENTS ====================== */
+const Clients = {
+  filter: 'all',
+  init() { this.refreshZones(); },
+  refreshZones() {
+    const zones = [...new Set(state.clients.map(c => c.zone).filter(Boolean))];
+    $('zoneList').innerHTML = zones.map(z => '<option value="' + esc(z) + '">').join('');
+  },
+  save() {
+    const name = $('cName').value.trim();
+    if (!name) { toast('Enter a client name', 'err'); return; }
+    const id = $('cEditId').value;
+    const data = {
+      name, type: $('cType').value, phone: $('cPhone').value.trim(), zone: $('cZone').value.trim(),
+      address: $('cAddr').value.trim(), rate: num($('cRate').value), size: $('cSize').value,
+      bottlesHeld: num($('cBottlesHeld').value), security: num($('cSecurity').value), opening: num($('cOpening').value),
+      billingDay: $('cType').value === 'Monthly' ? (Math.min(Math.max(num($('cBillDay').value) || 1, 1), 31)) : 1
+    };
+    if (id) { Object.assign(getClient(id), data); toast('Client updated'); }
+    else { state.clients.push(Object.assign({ id: uid(), createdAt: today() }, data)); toast('Client added'); }
+    save(); this.clearForm(); this.refreshZones(); this.renderList();
+  },
+  edit(id) {
+    const c = getClient(id); if (!c) return;
+    $('cEditId').value = c.id; $('cName').value = c.name; $('cType').value = c.type;
+    $('cPhone').value = c.phone || ''; $('cZone').value = c.zone || ''; $('cAddr').value = c.address || '';
+    $('cRate').value = c.rate; $('cSize').value = c.size || '19 L'; $('cBottlesHeld').value = c.bottlesHeld || 0;
+    $('cSecurity').value = c.security || 0; $('cOpening').value = c.opening || 0;
+    this.fillBillDays(); $('cBillDay').value = String(Math.min(Math.max(num(c.billingDay) || 1, 1), 31)); this.toggleBillDay();
+    $('clientFormTitle').textContent = 'Edit client';
+    switchView('clients'); window.scrollTo({ top: 0, behavior: 'smooth' });
+  },
+  fillBillDays() {
+    const sel = $('cBillDay'); if (!sel || sel.options.length) return;
+    let h = ''; for (let d = 1; d <= 31; d++) h += '<option value="' + d + '">' + d + (d === 1 ? ' (calendar month)' : '') + '</option>';
+    sel.innerHTML = h;
+  },
+  toggleBillDay() { this.fillBillDays(); $('cBillDayWrap').style.display = $('cType').value === 'Monthly' ? '' : 'none'; },
+  clearForm() {
+    ['cEditId', 'cName', 'cPhone', 'cZone', 'cAddr'].forEach(i => $(i).value = '');
+    $('cRate').value = state.sizeRates['19 L'] || 120; $('cType').value = 'Daily'; $('cSize').value = '19 L';
+    $('cBottlesHeld').value = 0; $('cSecurity').value = 0; $('cOpening').value = 0;
+    this.fillBillDays(); $('cBillDay').value = '1'; this.toggleBillDay();
+    $('clientFormTitle').textContent = 'Add client';
+  },
+  remove(id) {
+    UI.confirm('Delete client?', 'This removes the client record. Their past route entries stay intact in history.',
+      () => { trackDelete('clients', id); state.clients = state.clients.filter(c => c.id !== id); save(); this.renderList(); toast('Client deleted'); });
+  },
+  setFilter(f, btn) {
+    this.filter = f;
+    document.querySelectorAll('#clientSeg button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    this.renderList();
+  },
+  renderList() {
+    const q = ($('clientSearch').value || '').toLowerCase();
+    let list = state.clients.filter(c => !q || c.name.toLowerCase().includes(q) || (c.zone || '').toLowerCase().includes(q) || (c.phone || '').includes(q));
+    if (this.filter === 'Daily' || this.filter === 'Monthly') list = list.filter(c => c.type === this.filter);
+    if (this.filter === 'unpaid') list = list.filter(c => clientBalance(c.id) > 0);
+    list.sort((a, b) => a.name.localeCompare(b.name));
+    $('clientCount').textContent = state.clients.length;
+    const body = $('clientTable');
+    if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty"><span class="ic">👥</span>No clients yet — add your first one above</td></tr>'; return; }
+    body.innerHTML = list.map(c => {
+      const bal = clientBalance(c.id);
+      const balCell = bal > 0 ? '<span class="money-bal num">' + pkr(bal) + '</span>' : '<span class="money-pos">Clear</span>';
+      return '<tr>' +
+        '<td><b>' + esc(c.name) + '</b>' + (c.phone ? '<div class="mini">' + esc(c.phone) + '</div>' : '') + '</td>' +
+        '<td><span class="bdg ' + (c.type === 'Monthly' ? 'monthly' : 'daily') + '">' + c.type + '</span></td>' +
+        '<td class="hide-sm">' + esc(c.zone || '—') + '</td>' +
+        '<td class="hide-sm num">' + pkr(c.rate) + '</td>' +
+        '<td class="r-money">' + balCell + '</td>' +
+        '<td><div class="row-actions">' +
+          '<button class="iconbtn" title="Ledger" onclick="Ledger.open(\'' + c.id + '\')">📒</button>' +
+          '<button class="iconbtn" title="Edit" onclick="Clients.edit(\'' + c.id + '\')">✏️</button>' +
+          '<button class="iconbtn del" title="Delete" onclick="Clients.remove(\'' + c.id + '\')">🗑️</button>' +
+        '</div></td></tr>';
+    }).join('');
+  }
+};
+
+/* ====================== ROUTE SHEET ====================== */
+const RouteSheet = {
+  rows: [],          // working rows for the sheet being built
+  editingId: null,   // id of saved route being edited
+  pendingClient: null,
+  init() {
+    $('rDate').value = today();
+    clientAutocomplete('routeClientSearch', 'routeClientAC', (c, newName) => {
+      if (c) this.openAdd(c); else this.openNewClient(newName);
+    }, { allowNew: true });
+    this.renderRows();
+  },
+  isDirty() {
+    // dirty if there are working rows OR header fields filled and not yet saved
+    return this.rows.length > 0;
+  },
+  /* --- add client flow with popup --- */
+  openAdd(client) {
+    if (!client) return;
+    this.pendingClient = client;
+    const bal = clientBalance(client.id);
+    $('ram-name').textContent = client.name;
+    $('ram-info').innerHTML =
+      '<div class="flexspace"><span class="bdg ' + (client.type === 'Monthly' ? 'monthly' : 'daily') + '">' + client.type + ' client</span>' +
+      (bal > 0 ? '<span class="bdg bal">Balance due: ' + pkr(bal) + '</span>' : '<span class="bdg paid">No balance</span>') + '</div>' +
+      '<div class="mini" style="margin-top:8px">' + esc(client.zone || 'No area') + (client.address ? ' · ' + esc(client.address) : '') + '</div>';
+    $('ram-qty').value = 0;
+    $('ram-rate').value = client.rate;
+    $('ram-recv').value = 0;
+    this._modalBal = bal;
+    this._recvTouched = false;       // while false, daily clients assume they paid today's bill
+    this.recalcModal();
+    $('ram-hint').textContent = client.type === 'Monthly'
+      ? 'Monthly client — leave cash at 0; the bill goes to their monthly invoice.'
+      : (bal > 0 ? 'He owes ' + pkr(bal) + ' from before. Type the TOTAL cash he handed you — extra over today\u2019s bill clears his old balance automatically.'
+        : 'Type the bottles — cash auto-fills as today\u2019s bill. Change it if he paid more or less.');
+    $('routeClientSearch').value = '';
+    $('routeAddModal').classList.add('show');
+    $('ram-qty').oninput = () => this.recalcModal();
+    $('ram-rate').oninput = () => this.recalcModal();
+    $('ram-recv').oninput = () => { this._recvTouched = true; this.recalcModal(); };
+    setTimeout(() => { $('ram-qty').focus(); $('ram-qty').select(); }, 50);
+  },
+  setPay(kind) {
+    const bill = num($('ram-qty').value) * num($('ram-rate').value);
+    const oldBal = Math.max(0, this._modalBal || 0);
+    if (kind === 'bill') $('ram-recv').value = bill;
+    else if (kind === 'all') $('ram-recv').value = bill + oldBal;
+    else $('ram-recv').value = 0;
+    this._recvTouched = true;
+    this.recalcModal();
+  },
+  recalcModal() {
+    const c = this.pendingClient;
+    const qty = num($('ram-qty').value);
+    const bill = qty * num($('ram-rate').value);
+    const oldBal = this._modalBal || 0;
+    if (c && c.type === 'Daily' && !this._recvTouched) $('ram-recv').value = bill;   // assume today's bill paid until edited
+    const given = num($('ram-recv').value);
+    const todayPaid = Math.min(given, bill);
+    const todayLeft = bill - todayPaid;
+    const toOld = Math.max(0, given - bill);
+    const oldAfter = oldBal - toOld;
+    const line = (label, val, color) => '<div class="flexspace"' + (color ? ' style="color:' + color + '"' : '') + '><span>' + label + '</span><b>' + pkr(val) + '</b></div>';
+    let h = line("Today's bill (" + qty + " bottles)", bill) +
+      '<div class="flexspace" style="color:var(--ink-soft);margin-top:4px"><span>He gave you now</span><b>' + pkr(given) + '</b></div>' +
+      '<hr style="border:none;border-top:1px dashed var(--line);margin:9px 0">';
+    if (todayLeft > 0) h += line('→ Paid for today', todayPaid, 'var(--green)') + line('→ Added to his balance', todayLeft, 'var(--amber)');
+    else h += '<div class="flexspace" style="color:var(--green)"><span>✓ Today\u2019s bill fully paid</span><b>' + pkr(bill) + '</b></div>';
+    if (toOld > 0) {
+      h += line('→ Toward old balance', Math.min(toOld, oldBal > 0 ? oldBal : toOld), 'var(--green)');
+      if (oldBal > 0) h += '<div class="flexspace" style="margin-top:2px;color:var(--ink-soft)"><span>Old balance ' + pkr(oldBal) + ' → now</span><b>' + pkr(Math.max(oldAfter, 0)) + '</b></div>';
+      if (oldAfter < 0) h += line('→ Advance / credit', -oldAfter, 'var(--primary)');
+    }
+    $('ram-breakdown').innerHTML = h;
+  },
+  confirmAdd() {
+    const c = this.pendingClient; if (!c) return;
+    const qty = num($('ram-qty').value), rate = num($('ram-rate').value);
+    if (qty <= 0) { toast('Quantity must be more than 0', 'err'); return; }
+    const bill = qty * rate;
+    const given = Math.max(0, num($('ram-recv').value));
+    const received = Math.min(given, bill);          // today's portion
+    const collected = Math.max(0, given - bill);     // extra → toward old balance
+    this.rows.push({ rid: uid(), clientId: c.id, name: c.name, zone: c.zone || '', type: c.type, qty, rate, total: bill, received, balance: bill - received, collected });
+    this.closeAdd();
+    this.renderRows();
+    toast(c.name + ' added' + (collected > 0 ? ' · ' + pkr(collected) + ' to old balance' : ''));
+  },
+  closeAdd() { $('routeAddModal').classList.remove('show'); this.pendingClient = null; },
+  /* --- add a brand-new client right from the route sheet --- */
+  openNewClient(name) {
+    $('nc-name').value = name || '';
+    $('nc-type').value = 'Daily';
+    $('nc-rate').value = state.sizeRates['19 L'] || 120;
+    $('nc-zone').value = ''; $('nc-phone').value = ''; $('nc-addr').value = '';
+    $('routeClientSearch').value = '';
+    $('routeClientAC').classList.remove('show');
+    $('newClientModal').classList.add('show');
+    setTimeout(() => $('nc-name').focus(), 50);
+  },
+  closeNewClient() { $('newClientModal').classList.remove('show'); },
+  saveNewClient() {
+    const name = $('nc-name').value.trim();
+    if (!name) { toast('Enter a name', 'err'); return; }
+    const c = {
+      id: uid(), createdAt: today(), name, type: $('nc-type').value, rate: num($('nc-rate').value),
+      zone: $('nc-zone').value.trim(), phone: $('nc-phone').value.trim(), address: $('nc-addr').value.trim(),
+      size: '19 L', bottlesHeld: 0, security: 0, opening: 0
+    };
+    state.clients.push(c); save();
+    Clients.refreshZones();
+    this.closeNewClient();
+    toast(name + ' saved as a new client');
+    this.openAdd(c); // flow straight into the qty / cash popup
+  },
+  removeRow(i) { this.rows.splice(i, 1); this.renderRows(); },
+  editRowField(i, field, val) {
+    const row = this.rows[i]; if (!row) return;
+    row[field] = num(val);
+    row.total = row.qty * row.rate;
+    row.balance = row.total - row.received;
+    this.renderTotals();
+  },
+  renderRows() {
+    const body = $('routeRows');
+    if (!this.rows.length) { body.innerHTML = '<tr><td colspan="9" class="empty"><span class="ic">🫗</span>No clients added yet — search above to add</td></tr>'; this.renderTotals(); return; }
+    body.innerHTML = this.rows.map((row, i) =>
+      '<tr><td><b>' + esc(row.name) + '</b>' + (num(row.collected) > 0 ? '<div class="mini" style="color:var(--green)">+ ' + pkr(row.collected) + ' old balance</div>' : '') + '</td>' +
+      '<td class="hide-sm">' + esc(row.zone || '—') + '</td>' +
+      '<td><span class="bdg ' + (row.type === 'Monthly' ? 'monthly' : 'daily') + '">' + row.type + '</span></td>' +
+      '<td><input class="inp num" style="width:64px;padding:5px" type="number" value="' + row.qty + '" onchange="RouteSheet.editRowField(' + i + ',\'qty\',this.value)"></td>' +
+      '<td><input class="inp num" style="width:74px;padding:5px" type="number" value="' + row.rate + '" onchange="RouteSheet.editRowField(' + i + ',\'rate\',this.value)"></td>' +
+      '<td class="r-money num">' + pkr(row.total) + '</td>' +
+      '<td><input class="inp num" style="width:88px;padding:5px" type="number" value="' + row.received + '" onchange="RouteSheet.editRowField(' + i + ',\'received\',this.value)"></td>' +
+      '<td class="r-money num ' + (row.balance > 0 ? 'money-bal' : '') + '">' + pkr(row.balance) + '</td>' +
+      '<td><button class="iconbtn del" onclick="RouteSheet.removeRow(' + i + ')">🗑️</button></td></tr>'
+    ).join('');
+    this.renderTotals();
+  },
+  renderTotals() {
+    const qty = this.rows.reduce((s, r) => s + num(r.qty), 0);
+    const collected = this.rows.reduce((s, r) => s + num(r.collected), 0);
+    const cash = this.rows.reduce((s, r) => s + num(r.received), 0) + collected;
+    const bal = this.rows.reduce((s, r) => s + num(r.balance), 0);
+    const exp = num($('rFuel').value) + num($('rFood').value) + num($('rOther').value);
+    $('rsQty').textContent = qty;
+    $('rsCash').textContent = pkr(cash);
+    $('rsExp').textContent = pkr(exp);
+    $('rsBal').textContent = pkr(bal);
+    $('rsHandover').textContent = pkr(cash - exp);
+  },
+  save() {
+    const date = $('rDate').value;
+    if (!date) { toast('Pick a date', 'err'); return; }
+    if (!this.rows.length) { toast('Add at least one client', 'err'); return; }
+    const r = {
+      id: this.editingId || ('R' + (state.seq.route++) + '-' + uid()),
+      date, driver: $('rDriver').value.trim(), vehicle: $('rVehicle').value.trim(),
+      fuel: num($('rFuel').value), food: num($('rFood').value), other: num($('rOther').value), otherNote: $('rOtherNote').value.trim(),
+      botOut: num($('rBotOut').value), botRet: num($('rBotRet').value), botDmg: num($('rBotDmg').value),
+      rows: JSON.parse(JSON.stringify(this.rows)), savedAt: new Date().toISOString()
+    };
+    if (this.editingId) {
+      const idx = state.routes.findIndex(x => x.id === this.editingId);
+      state.routes[idx] = r; toast('Route sheet updated');
+    } else { state.routes.push(r); toast('Route sheet saved'); }
+    // turn "old balance collected" entries into payments (idempotent: keyed by route+client)
+    const want = {};
+    r.rows.forEach(row => {
+      const col = num(row.collected);
+      if (col > 0) want['RC-' + r.id + '-' + row.clientId] = { id: 'RC-' + r.id + '-' + row.clientId, clientId: row.clientId, amount: col, date: r.date, method: 'Cash', note: 'Old balance collected on route' + (r.driver ? ' · ' + r.driver : ''), src: 'route', routeId: r.id };
+    });
+    state.payments.filter(p => p.src === 'route' && p.routeId === r.id && !want[p.id]).forEach(p => { try { trackDelete('payments', p.id); } catch (e) {} });
+    state.payments = state.payments.filter(p => !(p.src === 'route' && p.routeId === r.id && !want[p.id]));
+    Object.values(want).forEach(wp => { const ex = state.payments.find(p => p.id === wp.id); if (ex) Object.assign(ex, wp); else state.payments.push(wp); });
+    save();
+    this.clearForm();
+    this.renderArchive();
+  },
+  clearForm() {
+    this.rows = []; this.editingId = null; this.pendingClient = null;
+    $('rDate').value = today(); $('rDriver').value = ''; $('rVehicle').value = '';
+    ['rFuel', 'rFood', 'rOther', 'rBotOut', 'rBotRet', 'rBotDmg'].forEach(i => $(i).value = 0);
+    $('rOtherNote').value = '';
+    $('routeFormTitle').textContent = 'New route sheet';
+    $('routeEditingBadge').style.display = 'none';
+    this.renderRows();
+  },
+  loadForEdit(id) {
+    const r = state.routes.find(x => x.id === id); if (!r) return;
+    const apply = () => {
+      this.editingId = r.id;
+      this.rows = JSON.parse(JSON.stringify(r.rows || []));
+      $('rDate').value = r.date; $('rDriver').value = r.driver || ''; $('rVehicle').value = r.vehicle || '';
+      $('rFuel').value = r.fuel || 0; $('rFood').value = r.food || 0; $('rOther').value = r.other || 0;
+      $('rOtherNote').value = r.otherNote || '';
+      $('rBotOut').value = r.botOut || 0; $('rBotRet').value = r.botRet || 0; $('rBotDmg').value = r.botDmg || 0;
+      $('routeFormTitle').textContent = 'Editing ' + fmtDate(r.date) + ' route';
+      $('routeEditingBadge').style.display = '';
+      this.renderRows();
+      doSwitch('route'); window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    // warn if a different draft is in progress
+    if (this.isDirty() && this.editingId !== id) {
+      UI.confirm('Open this route sheet?', 'Your current unsaved sheet will be replaced. Save it first if you need it.', apply);
+    } else apply();
+  },
+  remove(id) {
+    UI.confirm('Delete route sheet?', 'This permanently removes this day\'s route and its balances.',
+      () => { trackDelete('routes', id); state.routes = state.routes.filter(x => x.id !== id); save(); this.renderArchive(); toast('Route sheet deleted'); });
+  },
+  renderArchive() {
+    const q = ($('rArchSearch').value || '').toLowerCase();
+    const from = $('rArchFrom').value, to = $('rArchTo').value;
+    let list = state.routes.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    if (q) list = list.filter(r => (r.date + ' ' + r.driver + ' ' + r.vehicle).toLowerCase().includes(q));
+    if (from) list = list.filter(r => r.date >= from);
+    if (to) list = list.filter(r => r.date <= to);
+    const body = $('routeArchive');
+    if (!list.length) { body.innerHTML = '<tr><td colspan="10" class="empty"><span class="ic">🗂️</span>No saved route sheets</td></tr>'; return; }
+    let gQty = 0, gTotal = 0, gCash = 0, gExp = 0, gBal = 0, gClients = 0;
+    const rowsHtml = list.map(r => {
+      const total = (r.rows || []).reduce((s, x) => s + num(x.total), 0);
+      const cash = (r.rows || []).reduce((s, x) => s + num(x.received) + num(x.collected), 0);
+      const qty = (r.rows || []).reduce((s, x) => s + num(x.qty), 0);
+      const exp = num(r.fuel) + num(r.food) + num(r.other);
+      const bal = (r.rows || []).reduce((s, x) => s + num(x.balance), 0);
+      gQty += qty; gTotal += total; gCash += cash; gExp += exp; gBal += bal; gClients += (r.rows || []).length;
+      return '<tr>' +
+        '<td><b>' + fmtDate(r.date) + '</b></td>' +
+        '<td class="hide-sm">' + esc(r.driver || '—') + (r.vehicle ? '<div class="mini">' + esc(r.vehicle) + '</div>' : '') + '</td>' +
+        '<td>' + (r.rows || []).length + '</td>' +
+        '<td>' + qty + '</td>' +
+        '<td class="r-money num">' + pkr(total) + '</td>' +
+        '<td class="r-money num money-pos">' + pkr(cash) + '</td>' +
+        '<td class="r-money num money-neg">' + pkr(exp) + '</td>' +
+        '<td class="r-money num">' + pkr(cash - exp) + '</td>' +
+        '<td class="r-money num money-bal">' + pkr(bal) + '</td>' +
+        '<td><div class="row-actions">' +
+          '<button class="iconbtn" title="Print" onclick="RouteSheet.print(\'' + r.id + '\')">🖨️</button>' +
+          '<button class="iconbtn" title="Edit" onclick="RouteSheet.loadForEdit(\'' + r.id + '\')">✏️</button>' +
+          '<button class="iconbtn del" title="Delete" onclick="RouteSheet.remove(\'' + r.id + '\')">🗑️</button>' +
+        '</div></td></tr>';
+    }).join('');
+    const totalsRow = '<tr style="background:var(--surface-2);font-weight:700;border-top:2px solid var(--ink-faint)">' +
+      '<td><b>TOTAL</b></td><td class="hide-sm"></td>' +
+      '<td><b>' + gClients + '</b></td>' +
+      '<td><b>' + gQty + '</b></td>' +
+      '<td class="r-money num"><b>' + pkr(gTotal) + '</b></td>' +
+      '<td class="r-money num money-pos"><b>' + pkr(gCash) + '</b></td>' +
+      '<td class="r-money num money-neg"><b>' + pkr(gExp) + '</b></td>' +
+      '<td class="r-money num"><b>' + pkr(gCash - gExp) + '</b></td>' +
+      '<td class="r-money num money-bal"><b>' + pkr(gBal) + '</b></td>' +
+      '<td></td></tr>';
+    body.innerHTML = rowsHtml + totalsRow;
+  },
+  print(id) {
+    const r = state.routes.find(x => x.id === id); if (!r) return;
+    const total = (r.rows || []).reduce((s, x) => s + num(x.total), 0);
+    const cashToday = (r.rows || []).reduce((s, x) => s + num(x.received), 0);
+    const oldColl = (r.rows || []).reduce((s, x) => s + num(x.collected), 0);
+    const cash = cashToday + oldColl;
+    const exp = num(r.fuel) + num(r.food) + num(r.other);
+    const html = '<div id="invoiceSheet">' +
+      '<div style="display:flex;justify-content:space-between;border-bottom:2px solid #0e7c9a;padding-bottom:10px;margin-bottom:14px">' +
+      '<div><h2 style="color:#0e7c9a;margin:0">AQUA PACK — Route Sheet</h2><div style="font-size:12px;color:#555">' + fmtDate(r.date) + '</div></div>' +
+      '<div style="text-align:right;font-size:12px">Driver: <b>' + esc(r.driver || '—') + '</b><br>Vehicle: <b>' + esc(r.vehicle || '—') + '</b></div></div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<thead><tr style="background:#f0f0f0"><th style="text-align:left;padding:6px;border:1px solid #ddd">Client</th><th style="padding:6px;border:1px solid #ddd">Qty</th><th style="padding:6px;border:1px solid #ddd">Rate</th><th style="padding:6px;border:1px solid #ddd">Total</th><th style="padding:6px;border:1px solid #ddd">Cash</th><th style="padding:6px;border:1px solid #ddd">Balance</th></tr></thead><tbody>' +
+      (r.rows || []).map(x => '<tr><td style="padding:6px;border:1px solid #ddd">' + esc(x.name) + (num(x.collected) > 0 ? '<div style="font-size:11px;color:#0a7d3a">+ ' + pkr(x.collected) + ' old balance</div>' : '') + '</td><td style="text-align:center;padding:6px;border:1px solid #ddd">' + x.qty + '</td><td style="text-align:right;padding:6px;border:1px solid #ddd">' + x.rate + '</td><td style="text-align:right;padding:6px;border:1px solid #ddd">' + Math.round(x.total) + '</td><td style="text-align:right;padding:6px;border:1px solid #ddd">' + Math.round(x.received) + '</td><td style="text-align:right;padding:6px;border:1px solid #ddd">' + Math.round(x.balance) + '</td></tr>').join('') +
+      '</tbody></table>' +
+      '<div style="margin-top:14px;font-size:13px"><b>Bottles:</b> out ' + (r.botOut || 0) + ' · returned ' + (r.botRet || 0) + ' · damaged ' + (r.botDmg || 0) + '</div>' +
+      '<div style="margin-top:6px;font-size:13px">Total value <b>' + pkr(total) + '</b> · Cash for today\'s bottles <b>' + pkr(cashToday) + '</b> · Old balance collected <b>' + pkr(oldColl) + '</b> · Total cash in <b>' + pkr(cash) + '</b> · Expenses <b>' + pkr(exp) + '</b> · Driver hands over <b>' + pkr(cash - exp) + '</b></div>' +
+      '</div>';
+    const niceDate = new Date(r.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    Invoices._printHtml(html, 'Route Sheet ' + niceDate);
+  }
+};
+
+/* ====================== LEDGER ====================== */
+const Ledger = {
+  currentId: null,
+  filter: 'all',
+  init() { clientAutocomplete('ledgerSearch', 'ledgerAC', c => { if (c) this.open(c.id); }, { allowNew: false }); this.renderList(); },
+  setFilter(f, btn) {
+    this.filter = f;
+    if (btn && btn.parentElement) [...btn.parentElement.children].forEach(b => b.classList.toggle('active', b === btn));
+    this.renderList();
+  },
+  renderList() {
+    const box = $('ledgerList'); if (!box) return;
+    let list = state.clients.slice();
+    if (this.filter === 'Daily' || this.filter === 'Monthly') list = list.filter(c => c.type === this.filter);
+    list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (!list.length) { box.innerHTML = '<span style="color:#999">No ' + (this.filter === 'all' ? '' : this.filter.toLowerCase() + ' ') + 'clients.</span>'; return; }
+    box.innerHTML = list.map(c => {
+      const over = isMonthly(c) ? monthlyBook(c.id).overdue : clientBalance(c.id);
+      const tag = over > 0 ? '<span class="money-bal" style="font-weight:700"> · ' + pkr(over) + '</span>' : '';
+      return '<button class="btn ghost sm" style="margin:0 6px 6px 0" onclick="Ledger.open(\'' + c.id + '\')">' + esc(c.name) + ' <span class="bdg ' + (c.type === 'Monthly' ? 'monthly' : 'daily') + '" style="font-size:9px">' + (c.type || 'Daily')[0] + '</span>' + tag + '</button>';
+    }).join('');
+  },
+  open(id) {
+    const c = getClient(id); if (!c) return;
+    this.currentId = id;
+    doSwitch('ledger');
+    $('ledgerSearch').value = c.name;
+
+    // build ONE chronological statement with a running balance
+    const tx = [];
+    if (num(c.opening) !== 0) tx.push({ date: c.createdAt || '2000-01-01', kind: 'open', desc: 'Opening balance', charge: num(c.opening), paid: 0 });
+    state.routes.forEach(r => (r.rows || []).forEach(row => {
+      if (row.clientId === id) tx.push({ date: r.date, kind: 'deliver', desc: row.qty + ' bottle(s) delivered' + (r.driver ? ' · ' + r.driver : ''), charge: num(row.total), paid: num(row.received) });
+    }));
+    state.fillings.forEach(f => { if (f.clientId === id) tx.push({ date: f.date, kind: 'fill', desc: f.qty + ' bottle(s) filled at plant', charge: fillTotal(f), paid: fillRecv(f) }); });
+    state.payments.forEach(p => { if (p.clientId === id) tx.push({ date: p.date, kind: 'pay', desc: 'Payment received' + (p.method ? ' (' + p.method + ')' : '') + (p.note ? ' · ' + p.note : ''), charge: 0, paid: num(p.amount), payId: p.id }); });
+    tx.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.kind === 'pay' ? 1 : -1));
+    let run = 0; tx.forEach(t => { run += t.charge - t.paid; t.run = run; });
+
+    const bal = clientBalance(id);
+    const mL = isMonthly(c) ? monthlyBook(id) : null;
+    const since = mL ? mL.overdueSince : lastUnpaidDate(id);
+    const overdue = mL ? (mL.overdue > 0) : (bal > 0 && since && daysSince(since) >= 7);
+    const totalBottles = tx.filter(t => t.kind === 'deliver').reduce((s, t) => s + 0, 0); // computed below
+    let bottles = 0; state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id) bottles += num(row.qty); }));
+
+    const head =
+      '<div class="card"><div class="flexspace">' +
+        '<div><h2 style="font-size:20px">' + esc(c.name) + ' ' +
+          '<span class="bdg ' + (c.type === 'Monthly' ? 'monthly' : 'daily') + '">' + c.type + '</span>' +
+          (overdue ? ' <span class="bdg unpaid"><span class="dotwarn"></span> ' + daysSince(since) + ' days overdue</span>' : '') + '</h2>' +
+          '<div class="mini" style="margin-top:4px">' + esc(c.zone || 'No area') + (c.address ? ' · ' + esc(c.address) : '') + (c.phone ? ' · ' + esc(c.phone) : '') + '</div></div>' +
+        '<div class="row-actions"><button class="btn ghost sm" onclick="Clients.edit(\'' + id + '\')">Edit</button>' +
+          '<button class="btn pri sm" onclick="Ledger.openPay(\'' + id + '\')">＋ Record payment</button></div>' +
+      '</div>' +
+      '<div class="stats" style="grid-template-columns:repeat(4,1fr);margin-top:14px;margin-bottom:0">' +
+        '<div class="stat ' + (bal > 0 ? 'amber' : 'green') + '"><div class="lbl">Balance due</div><div class="val num">' + pkr(bal) + '</div></div>' +
+        '<div class="stat"><div class="lbl">Rate</div><div class="val num">' + pkr(c.rate) + '</div></div>' +
+        '<div class="stat blue"><div class="lbl">Bottles delivered</div><div class="val num">' + bottles + '</div></div>' +
+        '<div class="stat green"><div class="lbl">Security held</div><div class="val num">' + pkr(c.security) + '</div></div>' +
+      '</div></div>';
+
+    if (isMonthly(c)) { $('ledgerBody').innerHTML = head + this.monthlyStmt(id); return; }
+
+    const stmt = tx.length
+      ? '<div class="tw"><table><thead><tr><th>Date</th><th>Detail</th><th class="r-money">Charge</th><th class="r-money">Paid</th><th class="r-money">Balance</th><th></th></tr></thead><tbody>' +
+        tx.slice().reverse().map(t =>
+          '<tr><td>' + fmtDate(t.date) + '</td>' +
+          '<td>' + (t.kind === 'pay' ? '<span class="bdg paid">✓ payment</span> ' : '') + esc(t.desc) + '</td>' +
+          '<td class="r-money num">' + (t.charge ? pkr(t.charge) : '—') + '</td>' +
+          '<td class="r-money num money-pos">' + (t.paid ? pkr(t.paid) : '—') + '</td>' +
+          '<td class="r-money num ' + (t.run > 0 ? 'money-bal' : 'money-pos') + '"><b>' + pkr(t.run) + '</b></td>' +
+          '<td>' + (t.kind === 'pay' ? '<button class="iconbtn del" onclick="Ledger.deletePay(\'' + t.payId + '\')">🗑️</button>' : '') + '</td></tr>'
+        ).join('') +
+        '</tbody></table></div><p class="mini" style="margin-top:8px">Newest first. The <b>Balance</b> column shows what was owed right after each entry.</p>'
+      : '<div class="empty"><span class="ic">📒</span>No activity yet</div>';
+
+    $('ledgerBody').innerHTML = head +
+      '<div class="card"><div class="card-h"><h3><span class="ic">📑</span> Account statement</h3><span class="pill">' + tx.length + ' entries</span></div>' + stmt + '</div>';
+  },
+  // invoice-driven statement for MONTHLY clients — each invoice shows Paid / pending, plus unbilled deliveries
+  monthlyStmt(id) {
+    const B = monthlyBook(id);
+    if (!B.receivables.length && !B.unbilled.length) return '<div class="card"><div class="empty"><span class="ic">📒</span>No activity yet</div></div>';
+    const pill = r => r.status === 'cleared'
+      ? '<span class="bdg paid">✓ Paid</span>'
+      : r.status === 'partial'
+        ? '<span class="bdg monthly">' + pkr(r.unpaid) + ' pending</span>'
+        : r.status === 'unpaid'
+          ? '<span class="bdg unpaid"><span class="dotwarn"></span> ' + pkr(r.unpaid) + ' unpaid</span>'
+          : '<span class="bdg paid">✓ Paid</span>';
+    const cards = B.receivables.slice().reverse().map(r => {
+      const iv = r.inv;
+      const lines = [];
+      if (iv) (iv.items || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(it => {
+        const d = it.src && it.src.type === 'fill' ? (it.qty + ' bottle(s) filled at plant') : (it.qty + ' bottle(s) delivered' + (it.driver ? ' · ' + it.driver : ''));
+        lines.push('<tr><td>' + fmtDate(it.date) + '</td><td>' + esc(d) + '</td><td class="r-money num">' + pkr(it.total) + '</td><td></td></tr>');
+      });
+      r.paidBy.forEach(p => lines.push('<tr><td>' + fmtDate(p.date) + '</td><td><span class="bdg paid">✓ payment</span> Payment applied' + (p.method ? ' (' + esc(p.method) + ')' : '') + '</td><td class="r-money num money-pos">' + pkr(p.amount) + '</td><td>' + (p.payId ? '<button class="iconbtn del" title="Delete whole payment" onclick="Ledger.deletePay(\'' + p.payId + '\')">🗑️</button>' : '') + '</td></tr>'));
+      const head = iv
+        ? '<b style="font-size:15px">' + esc(iv.number) + '</b> <span class="mini">' + fmtDate(iv.from) + ' – ' + fmtDate(iv.to) + '</span>'
+        : '<b style="font-size:15px">Opening balance</b>';
+      const prevLine = (r.prevBalance > 0) ? '<div class="mini" style="color:#c47d0a">Previous balance carried: ' + pkr(r.prevBalance) + '</div>' : '';
+      const openBtn = iv ? '<button class="btn ghost sm" style="flex:none" onclick="Invoices.show(\'' + iv.id + '\')">Open</button>' : '';
+      return '<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">' +
+        '<div class="flexspace" style="padding:12px 14px;border-bottom:1px solid #eee;background:#f7f9fb">' +
+        '<div>' + head + prevLine + '</div><div class="row-actions">' + pill(r) + openBtn + '</div></div>' +
+        '<div class="tw"><table><thead><tr><th>Date</th><th>Detail</th><th class="r-money">Amount</th><th></th></tr></thead><tbody>' + lines.join('') +
+        '<tr style="background:#fafbfc;font-weight:700"><td colspan="2">Bill total</td><td class="r-money num">' + pkr(r.gross) + '</td><td></td></tr>' +
+        '</tbody></table></div></div>';
+    }).join('');
+    const unbilledCard = B.unbilled.length
+      ? '<div class="card" style="border-left:3px solid var(--blue);padding:0;overflow:hidden">' +
+        '<div class="flexspace" style="padding:12px 14px;border-bottom:1px solid #eee;background:#eef4fb"><b>Unbilled deliveries</b><span class="bdg monthly">will go on next invoice · ' + pkr(B.accruing) + '</span></div>' +
+        '<div class="tw"><table><thead><tr><th>Date</th><th>Detail</th><th class="r-money">Amount</th></tr></thead><tbody>' +
+        B.unbilled.map(u => '<tr><td>' + fmtDate(u.date) + '</td><td>' + esc(u.kind === 'fill' ? (u.qty + ' bottle(s) filled') : (u.qty + ' bottle(s) delivered' + (u.driver ? ' · ' + u.driver : ''))) + '</td><td class="r-money num">' + pkr(u.total) + '</td></tr>').join('') +
+        '</tbody></table></div><p class="mini" style="padding:8px 14px">These aren\u2019t on any invoice yet. Generate a new invoice to bill them, or they carry to the next one.</p></div>'
+      : '';
+    const adv = B.advance > 0 ? '<div class="card" style="border-left:3px solid var(--green)"><b class="money-pos">Advance / credit on file: ' + pkr(B.advance) + '</b><div class="mini">Extra payment not yet used by any bill.</div></div>' : '';
+    return '<div class="card"><div class="card-h"><h3><span class="ic">📑</span> Invoices &amp; billing</h3><span class="pill">' + B.receivables.filter(r => r.inv).length + ' invoice(s)</span></div>' +
+      '<p class="mini" style="margin-bottom:12px">Each invoice settles on its own. Payments clear the <b>oldest invoice first</b>. Unpaid older bills show as <b>previous balance</b> on the next one.</p>' + cards + '</div>' + unbilledCard + adv;
+  },
+  openPay(id) {
+    const c = getClient(id); if (!c) return;
+    $('payClientId').value = id;
+    this._payBal = clientBalance(id);
+    $('payInfo').innerHTML = '<b>' + esc(c.name) + '</b><div class="mini" style="margin-top:4px">Current balance: <b class="money-bal">' + pkr(this._payBal) + '</b></div>';
+    $('payAmount').value = ''; $('payDate').value = today(); $('payNote').value = '';
+    if ($('payMethod')) $('payMethod').value = 'Cash';
+    if ($('payFullBtn')) $('payFullBtn').textContent = this._payBal > 0 ? ('Pay full balance (' + pkr(this._payBal) + ')') : 'Pay full balance';
+    this.payPreview();
+    $('payModal').classList.add('show');
+    setTimeout(() => $('payAmount').focus(), 50);
+  },
+  payFull() { $('payAmount').value = Math.max(0, this._payBal || 0); this.payPreview(); },
+  payPreview() {
+    const el = $('payPreview'); if (!el) return;
+    const amt = num($('payAmount').value), bal = this._payBal || 0;
+    if (!amt) { el.innerHTML = ''; return; }
+    const left = Math.round(bal - amt);
+    if (left > 0) el.innerHTML = 'After this: <b class="money-bal">' + pkr(left) + '</b> still pending (oldest days clear first).';
+    else if (left === 0) el.innerHTML = '<b style="color:var(--green)">✓ This fully clears the balance.</b>';
+    else el.innerHTML = '<b style="color:var(--green)">✓ Clears the balance</b> — extra <b>' + pkr(-left) + '</b> becomes advance/credit.';
+  },
+  setPayDate(which) { $('payDate').value = which === 'yesterday' ? yesterday() : today(); },
+  closePay() { $('payModal').classList.remove('show'); },
+  savePay() {
+    const id = $('payClientId').value;
+    const amt = num($('payAmount').value);
+    if (amt <= 0) { toast('Enter an amount', 'err'); return; }
+    const bal = clientBalance(id);
+    state.payments.push({ id: uid(), clientId: id, amount: amt, date: $('payDate').value || today(), method: ($('payMethod') ? $('payMethod').value : 'Cash'), note: $('payNote').value.trim() });
+    save(); this.closePay(); this.open(id);
+    try { Dashboard.render(); } catch (e) {}
+    try { Clients.renderList(); } catch (e) {}
+    try { Invoices.renderList(); } catch (e) {}
+    if (amt > bal && bal >= 0) toast('Payment saved — ' + pkr(amt - bal) + ' is now advance/credit', 'warn');
+    else toast('Payment recorded — balance updated');
+    if (Invoices._reopen) { const rid = Invoices._reopen; Invoices._reopen = null; setTimeout(() => Invoices.show(rid), 140); }
+  },
+  deletePay(pid) {
+    UI.confirm('Delete payment?', 'This will increase the client\'s outstanding balance again.', () => {
+      const p = state.payments.find(x => x.id === pid); const cid = p && p.clientId;
+      trackDelete('payments', pid); state.payments = state.payments.filter(x => x.id !== pid); save();
+      if (cid) this.open(cid); toast('Payment deleted');
+    });
+  }
+};
+
+/* ====================== INVOICES ====================== */
+const Invoices = {
+  chosen: null,
+  init() {
+    clientAutocomplete('invClientSearch', 'invClientAC', c => { if (c) { this.chosen = c.id; $('invClientChosen').innerHTML = 'Selected: <b>' + esc(c.name) + '</b> (' + c.type + ')'; $('invClientSearch').value = c.name; } }, { allowNew: false });
+  },
+  quickRange(which) {
+    if (which === 'today') { $('invFrom').value = today(); $('invTo').value = today(); return; }
+    const c = this.chosen ? getClient(this.chosen) : null;
+    const bd = isMonthly(c) ? billDayOf(c) : 1;
+    // find the billing period that contains today, then step back for "prev"
+    let s = periodStartFor(today(), bd);
+    if (which === 'prev') { let m = s.m - 1, y = s.y; if (m < 1) { m = 12; y--; } s = { y, m, d: Math.min(bd, dim(y, m)) }; }
+    $('invFrom').value = pStr(s);
+    $('invTo').value = periodEndStr(s, bd);
+  },
+  generate() {
+    if (!this.chosen) { toast('Pick a client first', 'err'); return; }
+    const from = $('invFrom').value, to = $('invTo').value;
+    if (!from || !to) { toast('Pick a date range', 'err'); return; }
+    const c = getClient(this.chosen);
+    const items = [];
+    let backfilled = false;
+    // deliveries/fillings already on another invoice for this client — don't bill twice
+    const alreadyBilled = new Set();
+    state.invoices.forEach(iv => { if (iv.clientId === c.id) (iv.items || []).forEach(it => { const k = srcKeyOf(it); if (k) alreadyBilled.add(k); }); });
+    state.routes.forEach(r => {
+      if (r.date >= from && r.date <= to) (r.rows || []).forEach(row => {
+        if (row.clientId === c.id) {
+          if (!row.rid) { row.rid = uid(); backfilled = true; }
+          if (alreadyBilled.has('r:' + row.rid)) return;
+          items.push({ date: r.date, driver: r.driver || '', qty: row.qty, rate: row.rate, total: row.total, received: num(row.received), src: { type: 'route', routeId: r.id, rid: row.rid } });
+        }
+      });
+    });
+    // include plant fillings for this client in the period
+    state.fillings.forEach(f => {
+      if (f.clientId === c.id && f.date >= from && f.date <= to && !alreadyBilled.has('f:' + f.id)) items.push({ date: f.date, driver: 'Plant filling', qty: f.qty, rate: f.rate, total: fillTotal(f), received: fillRecv(f), src: { type: 'fill', fillId: f.id } });
+    });
+    if (backfilled) save();
+    items.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    if (!items.length) { toast('No deliveries or fillings for this client in that period', 'err'); return; }
+    const qty = items.reduce((s, i) => s + num(i.qty), 0);
+    const amount = items.reduce((s, i) => s + num(i.total), 0);
+    const inv = {
+      id: uid(), number: 'INV-' + String(state.seq.invoice++).padStart(4, '0'),
+      clientId: c.id, clientName: c.name, from, to, issueDate: today(),
+      qty, amount, items, paid: false
+    };
+    state.invoices.push(inv); save();
+    this.renderList(); this.show(inv.id);
+    toast('Invoice ' + inv.number + ' generated');
+  },
+  // correct outstanding for an invoice: previous balance + this period − cash at delivery − later payments
+  invoiceBalance(inv) {
+    const c = getClient(inv.clientId);
+    const periodTotal = (inv.items || []).reduce((s, i) => s + num(i.total), 0);
+    const periodCash = (inv.items || []).reduce((s, i) => s + num(i.received), 0);
+    if (isMonthly(c)) {
+      // MONTHLY (invoice-driven): previous balance = UNPAID earlier invoices only (0 if they paid up).
+      const B = monthlyBook(inv.clientId);
+      const r = B.receivables.find(x => x.inv && x.inv.id === inv.id);
+      if (r) {
+        const due = Math.round(r.prevBalance + (r.gross - r.cash) - r.allocated);
+        return { prev: r.prevBalance, periodTotal: r.gross, periodCash: r.cash, payRecs: r.paidBy.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')), payable: r.allocated, due, monthly: true };
+      }
+      return { prev: 0, periodTotal, periodCash, payRecs: [], payable: 0, due: Math.round(periodTotal - periodCash), monthly: true };
+    }
+    // DAILY / legacy: running-balance behaviour (previous balance carried, all later payments count)
+    const prev = clientBalanceBefore(inv.clientId, inv.from);
+    const payRecs = state.payments.filter(p => p.clientId === inv.clientId && p.date >= inv.from).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const payable = payRecs.reduce((s, p) => s + num(p.amount), 0);
+    const due = Math.round(prev + periodTotal - periodCash - payable);
+    return { prev, periodTotal, periodCash, payRecs, payable, due };
+  },
+  show(id) {
+    const inv = state.invoices.find(x => x.id === id); if (!inv) return;
+    const c = getClient(inv.clientId) || {};
+    this._openId = id;
+    const editing = !!this._editing;
+    const workItems = editing ? this._editItems : inv.items;
+    const liveInv = editing ? Object.assign({}, inv, { items: workItems }) : inv;
+    const B = this.invoiceBalance(liveInv);
+    const isPaid = B.due <= 0;
+    const periodQty = workItems.reduce((s, i) => s + num(i.qty), 0);
+    const rows = workItems.map((i) => {
+      const idx = workItems.indexOf(i);
+      if (editing) {
+        return '<tr>' +
+          '<td style="padding:6px;border:1px solid #e3e3e3">' + fmtDate(i.date) + '</td>' +
+          '<td style="padding:6px;border:1px solid #e3e3e3">' + esc(i.driver || '—') + '</td>' +
+          '<td style="text-align:center;padding:4px;border:1px solid #e3e3e3"><input type="number" value="' + i.qty + '" style="width:58px;text-align:center;padding:4px" onchange="Invoices.editLine(' + idx + ',\'qty\',this.value)"></td>' +
+          '<td style="text-align:right;padding:4px;border:1px solid #e3e3e3"><input type="number" value="' + i.rate + '" style="width:72px;text-align:right;padding:4px" onchange="Invoices.editLine(' + idx + ',\'rate\',this.value)"></td>' +
+          '<td style="text-align:right;padding:6px;border:1px solid #e3e3e3">' + pkr(num(i.qty) * num(i.rate)) + '</td>' +
+          '<td style="text-align:center;padding:4px;border:1px solid #e3e3e3;white-space:nowrap">' + (isMonthly(c) ? '<button class="iconbtn" title="Move to next invoice (keeps the delivery)" onclick="Invoices.unbillLine(' + idx + ')">➡️</button>' : '') + '<button class="iconbtn del" title="Delete delivery" onclick="Invoices.deleteLine(' + idx + ')">🗑️</button></td>' +
+          '</tr>';
+      }
+      return '<tr><td style="padding:6px;border:1px solid #e3e3e3">' + fmtDate(i.date) + '</td><td style="padding:6px;border:1px solid #e3e3e3">' + esc(i.driver || '—') + '</td><td style="text-align:center;padding:6px;border:1px solid #e3e3e3">' + i.qty + '</td><td style="text-align:right;padding:6px;border:1px solid #e3e3e3">' + pkr(i.rate) + '</td><td style="text-align:right;padding:6px;border:1px solid #e3e3e3">' + pkr(i.total) + '</td></tr>';
+    }).join('');
+    const payBlock = (B.payRecs.length || B.periodCash > 0)
+      ? '<div style="margin-top:16px"><div style="font-size:11px;text-transform:uppercase;color:#0f9d6b;font-weight:700;margin-bottom:6px">Payments received</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>' +
+        (B.periodCash > 0 ? '<tr><td style="padding:5px 7px;border:1px solid #e3e3e3;color:#0f9d6b">✓ Cash collected on delivery</td><td style="padding:5px 7px;border:1px solid #e3e3e3"></td><td style="padding:5px 7px;border:1px solid #e3e3e3;text-align:right;color:#0f9d6b;font-weight:700">' + pkr(B.periodCash) + '</td></tr>' : '') +
+        B.payRecs.map(p => '<tr><td style="padding:5px 7px;border:1px solid #e3e3e3;color:#0f9d6b">✓ Received on ' + fmtDate(p.date) + '</td><td style="padding:5px 7px;border:1px solid #e3e3e3;color:#666">' + esc(p.note || '') + '</td><td style="padding:5px 7px;border:1px solid #e3e3e3;text-align:right;color:#0f9d6b;font-weight:700">' + pkr(p.amount) + '</td></tr>').join('') +
+        '</tbody></table></div>'
+      : '';
+    $('invoiceSheet').innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0e7c9a;padding-bottom:12px;margin-bottom:16px">' +
+        '<div><div style="font-size:22px;font-weight:800;color:#0e7c9a;font-family:Sora,sans-serif">AQUA PACK</div><div style="font-size:11px;color:#777">Water Delivery Services</div></div>' +
+        '<div style="text-align:right"><div style="font-size:18px;font-weight:700">INVOICE</div><div style="font-size:12px;color:#555">' + inv.number + '</div>' +
+        '<div style="font-size:11px;color:#777;margin-top:4px">Issued ' + fmtDate(inv.issueDate) + '</div>' +
+        '<div style="margin-top:6px">' + (isPaid ? '<span style="background:#e3f6ee;color:#0f9d6b;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">PAID</span>' : '<span style="background:#fbe7e5;color:#d8453b;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">BALANCE DUE</span>') + '</div></div>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:14px">' +
+        '<div><div style="color:#999;font-size:11px;text-transform:uppercase">Bill to</div><b>' + esc(inv.clientName) + '</b><br>' + esc(c.address || c.zone || '') + (c.phone ? '<br>' + esc(c.phone) : '') + '</div>' +
+        '<div style="text-align:right"><div style="color:#999;font-size:11px;text-transform:uppercase">Period</div>' + fmtDate(inv.from) + ' – ' + fmtDate(inv.to) + '</div>' +
+      '</div>' +
+      (editing ? '<div style="background:#fff7e6;border:1px solid #f0b32a;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#8a5a00">✏️ <b>Editing</b> — change bottles or rate, or delete a line. Saving updates the actual delivery, so the ledger stays correct.</div>' : '') +
+      '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f3f6f8"><th style="text-align:left;padding:7px;border:1px solid #e3e3e3">Date</th><th style="padding:7px;border:1px solid #e3e3e3">Driver</th><th style="padding:7px;border:1px solid #e3e3e3">Bottles</th><th style="text-align:right;padding:7px;border:1px solid #e3e3e3">Rate</th><th style="text-align:right;padding:7px;border:1px solid #e3e3e3">Amount</th>' + (editing ? '<th style="padding:7px;border:1px solid #e3e3e3"></th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      payBlock +
+      '<div style="display:flex;justify-content:flex-end;margin-top:14px"><table style="font-size:14px">' +
+        (B.prev !== 0 ? '<tr><td style="padding:4px 16px;color:#555">Previous balance</td><td style="padding:4px 0;text-align:right;font-weight:700">' + pkr(B.prev) + '</td></tr>' : '') +
+        '<tr><td style="padding:4px 16px;color:#555">Charges this period (' + periodQty + ' bottles)</td><td style="padding:4px 0;text-align:right;font-weight:700">' + pkr(B.periodTotal) + '</td></tr>' +
+        ((B.payable + B.periodCash) > 0 ? '<tr><td style="padding:4px 16px;color:#0f9d6b">Payments received</td><td style="padding:4px 0;text-align:right;font-weight:700;color:#0f9d6b">− ' + pkr(B.payable + B.periodCash) + '</td></tr>' : '') +
+        '<tr style="font-size:17px"><td style="padding:6px 16px;border-top:2px solid #0e7c9a;font-weight:700">Balance due</td><td style="padding:6px 0;border-top:2px solid #0e7c9a;text-align:right;font-weight:800;color:' + (isPaid ? '#0f9d6b' : '#0e7c9a') + '">' + pkr(B.due) + '</td></tr></table></div>' +
+      '<div style="margin-top:24px;font-size:11px;color:#999;text-align:center">Thank you for choosing Aqua Pack — pure water, delivered.</div>';
+    $('invEditBtn').textContent = editing ? '💾 Save changes' : '✏️ Edit';
+    $('invPayBtn').style.display = editing ? 'none' : '';
+    $('invDelBtn').style.display = editing ? 'none' : '';
+    $('invModal').classList.add('show');
+  },
+  closeModal() { $('invModal').classList.remove('show'); this._editing = false; this._editItems = null; },
+  /* --- record payment straight from the invoice --- */
+  recordPay() {
+    const inv = state.invoices.find(x => x.id === this._openId); if (!inv) return;
+    this._reopen = this._openId;
+    $('invModal').classList.remove('show');
+    Ledger.openPay(inv.clientId);
+  },
+  /* --- edit mode (edits the real delivery, not just the bill) --- */
+  toggleEdit() {
+    const inv = state.invoices.find(x => x.id === this._openId); if (!inv) return;
+    if (!this._editing) { this._editing = true; this._unbill = new Set(); this._editItems = JSON.parse(JSON.stringify(inv.items)); this.show(inv.id); }
+    else { this.saveEdits(); }
+  },
+  editLine(idx, field, val) { if (!this._editItems[idx]) return; this._editItems[idx][field] = num(val); this.show(this._openId); },
+  unbillLine(idx) {
+    if (!this._editItems || !this._editItems[idx]) return;
+    this._unbill = this._unbill || new Set();
+    const k = this._srcKey(this._editItems[idx].src); if (k) this._unbill.add(k);
+    this._editItems.splice(idx, 1);
+    toast('Removed from this bill — will appear on the next invoice');
+    this.show(this._openId);
+  },
+  deleteLine(idx) {
+    if (!this._editItems) return;
+    this._editItems.splice(idx, 1);
+    this.show(this._openId);
+  },
+  _srcKey(s) { return !s ? '' : (s.type === 'route' ? 'r:' + s.rid : 'f:' + s.fillId); },
+  _deleteSource(s) {
+    if (!s) return;
+    if (s.type === 'route') {
+      const r = state.routes.find(x => x.id === s.routeId);
+      if (r) r.rows = (r.rows || []).filter(row => row.rid !== s.rid);
+    } else if (s.type === 'fill') {
+      try { trackDelete('fillings', s.fillId); } catch (e) {}
+      state.fillings = state.fillings.filter(f => f.id !== s.fillId);
+    }
+  },
+  saveEdits() {
+    const inv = state.invoices.find(x => x.id === this._openId); if (!inv) return;
+    const remaining = this._editItems || [];
+    const keep = new Set(remaining.map(it => this._srcKey(it.src)).filter(Boolean));
+    // 1) delete the deliveries/fillings whose lines were removed — BUT keep those moved to the next bill
+    const moved = this._unbill || new Set();
+    inv.items.forEach(it => { const k = this._srcKey(it.src); if (it.src && !keep.has(k) && !moved.has(k)) this._deleteSource(it.src); });
+    // 2) apply qty/rate edits back to the real delivery/filling
+    remaining.forEach(it => {
+      if (!it.src) return;
+      if (it.src.type === 'route') {
+        const r = state.routes.find(x => x.id === it.src.routeId);
+        const row = r && (r.rows || []).find(x => x.rid === it.src.rid);
+        if (row) { row.qty = num(it.qty); row.rate = num(it.rate); row.total = row.qty * row.rate; row.balance = row.total - num(row.received); }
+      } else if (it.src.type === 'fill') {
+        const f = state.fillings.find(x => x.id === it.src.fillId);
+        if (f) { f.qty = num(it.qty); f.rate = num(it.rate); f.total = f.qty * f.rate; f.amount = f.total; if (num(f.received) > f.total) f.received = f.total; }
+      }
+    });
+    // 3) rebuild the invoice snapshot from the (now corrected) sources
+    this._regen(inv);
+    save();
+    this._editing = false; this._editItems = null; this._unbill = null;
+    try { Dashboard.render(); } catch (e) {}
+    try { Clients.renderList(); } catch (e) {}
+    this.renderList();
+    this.show(inv.id);
+    toast('Invoice updated — deliveries & ledger adjusted');
+  },
+  _regen(inv) {
+    const items = [];
+    state.routes.forEach(r => {
+      if (r.date >= inv.from && r.date <= inv.to) (r.rows || []).forEach(row => {
+        if (row.clientId === inv.clientId) { if (!row.rid) row.rid = uid(); items.push({ date: r.date, driver: r.driver || '', qty: row.qty, rate: row.rate, total: row.total, received: num(row.received), src: { type: 'route', routeId: r.id, rid: row.rid } }); }
+      });
+    });
+    state.fillings.forEach(f => { if (f.clientId === inv.clientId && f.date >= inv.from && f.date <= inv.to) items.push({ date: f.date, driver: 'Plant filling', qty: f.qty, rate: f.rate, total: fillTotal(f), received: fillRecv(f), src: { type: 'fill', fillId: f.id } }); });
+    items.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    inv.items = items;
+    inv.qty = items.reduce((s, i) => s + num(i.qty), 0);
+    inv.amount = items.reduce((s, i) => s + num(i.total), 0);
+  },
+  del() {
+    const id = this._openId;
+    UI.confirm('Delete this invoice?', 'This removes the bill document only. The deliveries stay in the customer\u2019s ledger.', () => {
+      trackDelete('invoices', id); state.invoices = state.invoices.filter(x => x.id !== id); save();
+      this.closeModal(); this.renderList(); toast('Invoice deleted');
+    });
+  },
+  closeModalOld() { $('invModal').classList.remove('show'); },
+  remove(id) {
+    UI.confirm('Delete invoice?', 'This removes the invoice document only — deliveries stay in the ledger.', () => {
+      trackDelete('invoices', id); state.invoices = state.invoices.filter(x => x.id !== id); save(); this.renderList(); toast('Invoice deleted');
+    });
+  },
+  renderList() {
+    const q = ($('invSearch').value || '').toLowerCase();
+    let list = state.invoices.slice().sort((a, b) => (b.issueDate || '').localeCompare(a.issueDate || ''));
+    if (q) list = list.filter(i => (i.number + ' ' + i.clientName).toLowerCase().includes(q));
+    const body = $('invTable');
+    if (!list.length) { body.innerHTML = '<tr><td colspan="7" class="empty"><span class="ic">🧾</span>No invoices yet</td></tr>'; return; }
+    body.innerHTML = list.map(i => {
+      const due = this.invoiceBalance(i).due;
+      const status = due <= 0 ? '<span class="bdg paid">Paid</span>' : '<span class="bdg unpaid">' + pkr(due) + ' due</span>';
+      return '<tr><td><b>' + esc(i.number) + '</b></td><td>' + esc(i.clientName) + '</td>' +
+        '<td class="hide-sm mini">' + fmtDate(i.from) + ' – ' + fmtDate(i.to) + '</td>' +
+        '<td>' + i.qty + '</td><td class="r-money num">' + pkr(i.amount) + '</td>' +
+        '<td>' + status + '</td>' +
+        '<td><div class="row-actions"><button class="iconbtn" onclick="Invoices.show(\'' + i.id + '\')">👁️</button>' +
+          '<button class="iconbtn del" onclick="Invoices.remove(\'' + i.id + '\')">🗑️</button></div></td></tr>';
+    }).join('');
+  },
+  _printHtml(html, title) {
+    // reuse invoice modal as print surface for any sheet
+    const oldTitle = document.title;
+    if (title) document.title = title;
+    $('invoiceSheet').innerHTML = html.replace(/^<div id="invoiceSheet">/, '').replace(/<\/div>$/, '');
+    if ($('invEditBtn')) $('invEditBtn').style.display = 'none';
+    if ($('invPayBtn')) $('invPayBtn').style.display = 'none';
+    if ($('invDelBtn')) $('invDelBtn').style.display = 'none';
+    $('invModal').classList.add('show');
+    setTimeout(() => { window.print(); if ($('invEditBtn')) $('invEditBtn').style.display = ''; if ($('invPayBtn')) $('invPayBtn').style.display = ''; if ($('invDelBtn')) $('invDelBtn').style.display = ''; document.title = oldTitle; }, 250);
+  }
+};
+
+/* ====================== EXPENSES ====================== */
+const Expenses = {
+  range: 'all',
+  init() { $('eDate').value = today(); },
+  setRange(r, btn) { this.range = r; document.querySelectorAll('#expSeg button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); this.render(); },
+  inRange(d) { if (this.range === 'all') return true; if (this.range === 'month') return d && d.slice(0, 7) === thisMonth(); return d === today(); },
+  save() {
+    const amt = num($('eAmount').value);
+    if (amt <= 0) { toast('Enter an amount', 'err'); return; }
+    state.expenses.push({ id: uid(), date: $('eDate').value || today(), category: $('eCat').value, amount: amt, details: $('eDetails').value.trim(), recurring: $('eRecurring').value });
+    save(); $('eAmount').value = ''; $('eDetails').value = ''; this.render();
+    toast('Expense saved');
+  },
+  remove(id) { UI.confirm('Delete expense?', 'This removes the expense from your records and P&L.', () => { trackDelete('expenses', id); state.expenses = state.expenses.filter(e => e.id !== id); save(); this.render(); toast('Expense deleted'); }); },
+  render() {
+    let list = state.expenses.filter(e => this.inRange(e.date)).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const total = list.reduce((s, e) => s + num(e.amount), 0);
+    $('expTotal').textContent = pkr(total);
+    const body = $('expTable');
+    if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty"><span class="ic">💸</span>No expenses in this range</td></tr>'; return; }
+    body.innerHTML = list.map(e =>
+      '<tr><td>' + fmtDate(e.date) + '</td><td><span class="pill">' + esc(e.category) + '</span>' + (e.recurring === 'monthly' ? ' <span class="bdg monthly">monthly</span>' : '') + '</td>' +
+      '<td class="hide-sm">' + esc(e.details || '—') + '</td><td class="r-money num money-neg">' + pkr(e.amount) + '</td>' +
+      '<td><button class="iconbtn del" onclick="Expenses.remove(\'' + e.id + '\')">🗑️</button></td></tr>'
+    ).join('');
+  }
+};
+
+/* ====================== PLANT FILLING ====================== */
+const Filling = {
+  range: 'all',
+  init() {
+    $('fDate').value = today();
+    $('fRate').value = state.fillRate || 35;
+    $('fDefaultRate').value = state.fillRate || 35;
+    this.fillDatalist();
+    this.calc();
+    this.render();
+  },
+  fillDatalist() {
+    const dl = $('fClientList'); if (!dl) return;
+    dl.innerHTML = state.clients.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => '<option value="' + esc(c.name) + '">').join('');
+  },
+  calc() {
+    const qty = num($('fQty').value), rate = num($('fRate').value), total = qty * rate;
+    $('fAmount').value = pkr(total);
+    const st = $('fStatus').value;
+    $('fRecvWrap').style.display = st === 'partial' ? 'block' : 'none';
+    const hint = {
+      paid: 'Customer pays the full ' + pkr(total) + ' now. Counts as cash income.',
+      credit: 'Nothing paid now — the full ' + pkr(total) + ' is added to this customer\u2019s balance and appears on their monthly bill.',
+      partial: 'Enter what they paid now; the rest becomes their balance.'
+    };
+    $('fHint').textContent = hint[st] || '';
+  },
+  setRange(r, btn) { this.range = r; document.querySelectorAll('#fSeg button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); if ($('fRangeLbl')) $('fRangeLbl').textContent = '(' + (r === 'all' ? 'all' : r === 'month' ? 'this month' : 'today') + ')'; this.render(); },
+  inRange(d) { if (this.range === 'all') return true; if (this.range === 'month') return d && d.slice(0, 7) === thisMonth(); return d === today(); },
+  save() {
+    const qty = num($('fQty').value), rate = num($('fRate').value), total = qty * rate;
+    if (qty <= 0) { toast('Enter how many bottles were filled', 'err'); return; }
+    const name = ($('fCustomer').value || '').trim();
+    const st = $('fStatus').value;
+    let received = total;
+    if (st === 'credit') received = 0;
+    else if (st === 'partial') received = Math.min(num($('fReceived').value), total);
+
+    // a credit / partial filling must belong to a customer so it lands on their khata
+    let clientId = '';
+    if (received < total) {
+      if (!name) { toast('Credit filling needs a customer name', 'err'); return; }
+      let c = state.clients.find(x => (x.name || '').trim().toLowerCase() === name.toLowerCase());
+      if (!c) {
+        c = { id: uid(), name, type: 'Monthly', rate, zone: '', address: '', phone: '', size: '19 L', bottlesHeld: 0, security: 0, opening: 0, createdAt: today() };
+        state.clients.push(c);
+        toast('New filler customer "' + name + '" created');
+      }
+      clientId = c.id;
+    } else if (name) {
+      const c = state.clients.find(x => (x.name || '').trim().toLowerCase() === name.toLowerCase());
+      if (c) clientId = c.id;
+    }
+
+    state.fillings.push({ id: uid(), date: $('fDate').value || today(), clientId, customer: name, qty, rate, total, received, amount: total });
+    save();
+    $('fQty').value = ''; $('fCustomer').value = ''; $('fReceived').value = ''; $('fStatus').value = 'paid';
+    this.fillDatalist(); this.calc(); this.render();
+    try { Dashboard.render(); } catch (e) {}
+    try { Clients.renderList(); } catch (e) {}
+    toast(received < total ? 'Filling saved on credit — added to balance' : 'Filling saved');
+  },
+  remove(id) {
+    UI.confirm('Delete filling?', 'Removes it from income and from the customer\u2019s balance.', () => {
+      trackDelete('fillings', id); state.fillings = state.fillings.filter(f => f.id !== id); save(); this.render();
+      try { Dashboard.render(); } catch (e) {} try { Clients.renderList(); } catch (e) {} toast('Filling deleted');
+    });
+  },
+  saveRate() { state.fillRate = num($('fDefaultRate').value); $('fRate').value = state.fillRate; this.calc(); save(); toast('Default rate updated'); },
+  render() {
+    if ($('fDate') && !$('fDate').value) $('fDate').value = today();
+    if ($('fDefaultRate')) $('fDefaultRate').value = state.fillRate || 35;
+    this.fillDatalist();
+    try { this.calc(); } catch (e) {}
+    let list = state.fillings.filter(f => this.inRange(f.date)).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    $('fTotalQty').textContent = list.reduce((s, f) => s + num(f.qty), 0).toLocaleString();
+    $('fTotalCash').textContent = pkr(list.reduce((s, f) => s + fillRecv(f), 0));
+    $('fTotalCredit').textContent = pkr(list.reduce((s, f) => s + fillBal(f), 0));
+    const body = $('fTable');
+    if (!list.length) { body.innerHTML = '<tr><td colspan="8" class="empty"><span class="ic">🚰</span>No filling logged in this range</td></tr>'; return; }
+    body.innerHTML = list.map(f => {
+      const bal = fillBal(f);
+      const badge = bal <= 0 ? '<span class="bdg paid">Paid</span>' : (fillRecv(f) > 0 ? '<span class="bdg unpaid">Partial</span>' : '<span class="bdg monthly">Credit</span>');
+      return '<tr><td>' + fmtDate(f.date) + '</td>' +
+        '<td>' + esc(f.customer || '—') + ' ' + badge + '</td>' +
+        '<td>' + f.qty + '</td><td class="r-money num">' + pkr(f.rate) + '</td>' +
+        '<td class="r-money num">' + pkr(fillTotal(f)) + '</td>' +
+        '<td class="r-money num money-pos">' + pkr(fillRecv(f)) + '</td>' +
+        '<td class="r-money num ' + (bal > 0 ? 'money-bal' : '') + '">' + pkr(bal) + '</td>' +
+        '<td><button class="iconbtn del" onclick="Filling.remove(\'' + f.id + '\')">🗑️</button></td></tr>';
+    }).join('');
+  }
+};
+
+/* ====================== INVENTORY & STOCK ====================== */
+const Inventory = {
+  ensure() {
+    if (!state.stock) state.stock = {};
+    const d = { capsCount: 0, capsCountDate: '', capsReorder: 100, capsCost: 0, bottlesOwned: 0, bottlesDamaged: 0, bottleCost: 0, purchases: [], items: [] };
+    for (const k in d) if (state.stock[k] === undefined) state.stock[k] = d[k];
+    if (!Array.isArray(state.stock.purchases)) state.stock.purchases = [];
+    if (!Array.isArray(state.stock.items)) state.stock.items = [];
+  },
+  init() { this.ensure(); $('capsBuyDate').value = today(); $('capsSetDate').value = today(); },
+
+  /* ---- caps maths ---- */
+  capsConsumed() {
+    const since = state.stock.capsCountDate;
+    if (!since) return 0;
+    let used = 0;
+    state.routes.forEach(r => { if (r.date >= since) (r.rows || []).forEach(row => used += num(row.qty)); });
+    state.fillings.forEach(f => { if (f.date >= since) used += num(f.qty); });
+    return used;
+  },
+  capsBought() {
+    const since = state.stock.capsCountDate;
+    if (!since) return 0;
+    return state.stock.purchases.filter(p => p.item === 'caps' && p.date >= since).reduce((a, p) => a + num(p.qty), 0);
+  },
+  capsOnHand() { return num(state.stock.capsCount) + this.capsBought() - this.capsConsumed(); },
+  capsToday() {
+    const t = today(); let u = 0;
+    state.routes.forEach(r => { if (r.date === t) (r.rows || []).forEach(row => u += num(row.qty)); });
+    state.fillings.forEach(f => { if (f.date === t) u += num(f.qty); });
+    return u;
+  },
+
+  /* ---- bottle pool ---- */
+  poolOut() { return state.clients.reduce((a, c) => a + num(c.bottlesHeld), 0); },
+  poolDamaged() { let d = num(state.stock.bottlesDamaged); state.routes.forEach(r => d += num(r.botDmg)); return d; },
+  poolPlant() { return num(state.stock.bottlesOwned) - this.poolOut() - this.poolDamaged(); },
+
+  /* ---- actions ---- */
+  setCaps() {
+    this.ensure();
+    const q = num($('capsSetQty').value);
+    state.stock.capsCount = q;
+    state.stock.capsCountDate = $('capsSetDate').value || today();
+    save(); $('capsSetQty').value = ''; this.render(); toast('Cap stock set to ' + q);
+  },
+  buyCaps() {
+    this.ensure();
+    const q = num($('capsBuyQty').value);
+    if (q <= 0) { toast('Enter quantity', 'err'); return; }
+    if (!state.stock.capsCountDate) state.stock.capsCountDate = today();
+    const date = $('capsBuyDate').value || today(), cost = num($('capsBuyCost').value);
+    state.stock.purchases.push({ id: uid(), item: 'caps', date, qty: q, cost, note: '' });
+    if (cost > 0) state.expenses.push({ id: uid(), date, category: 'Bottle caps', amount: cost, details: q + ' caps', recurring: 'no' });
+    save(); $('capsBuyQty').value = ''; $('capsBuyCost').value = ''; this.render();
+    toast(q + ' caps added' + (cost > 0 ? ' (logged in expenses)' : ''));
+  },
+  saveReorder() { this.ensure(); state.stock.capsReorder = num($('capsReorder').value); save(); this.render(); },
+  saveOwned() { this.ensure(); state.stock.bottlesOwned = num($('poolOwnedInput').value); save(); this.render(); },
+  buyBottles() {
+    this.ensure();
+    const q = num($('poolBuyQty').value);
+    if (q <= 0) { toast('Enter quantity', 'err'); return; }
+    state.stock.bottlesOwned = num(state.stock.bottlesOwned) + q;
+    state.stock.purchases.push({ id: uid(), item: 'bottles', date: today(), qty: q, cost: 0, note: '' });
+    save(); $('poolBuyQty').value = ''; this.render(); toast(q + ' bottles added to fleet');
+  },
+  logDamage() {
+    this.ensure();
+    const q = num($('poolDmgQty').value);
+    if (q <= 0) { toast('Enter quantity', 'err'); return; }
+    state.stock.bottlesDamaged = num(state.stock.bottlesDamaged) + q;
+    save(); $('poolDmgQty').value = ''; this.render(); toast(q + ' bottles marked damaged');
+  },
+  addItem() {
+    this.ensure();
+    const name = $('itemName').value.trim();
+    if (!name) { toast('Enter item name', 'err'); return; }
+    state.stock.items.push({ id: uid(), name, qty: num($('itemQty').value), reorder: num($('itemReorder').value) });
+    save(); $('itemName').value = ''; $('itemQty').value = 0; $('itemReorder').value = 0; this.render(); toast('Item added');
+  },
+  adjustItem(id, delta) { this.ensure(); const it = state.stock.items.find(i => i.id === id); if (it) { it.qty = num(it.qty) + delta; save(); this.render(); } },
+  removeItem(id) { this.ensure(); state.stock.items = state.stock.items.filter(i => i.id !== id); save(); this.render(); toast('Item removed'); },
+
+  /* ---- low stock list (used by dashboard too) ---- */
+  lowStock() {
+    this.ensure();
+    const a = [];
+    const c = this.capsOnHand();
+    if (state.stock.capsCountDate && c <= num(state.stock.capsReorder)) a.push('Caps: ' + c + ' left');
+    (state.stock.items || []).forEach(it => { if (num(it.qty) <= num(it.reorder)) a.push(esc(it.name) + ': ' + num(it.qty) + ' left'); });
+    return a;
+  },
+
+  render() {
+    this.ensure();
+    const s = state.stock;
+    const onHand = this.capsOnHand();
+    if ($('sumCaps')) { $('sumCaps').textContent = onHand.toLocaleString(); $('sumCaps').style.color = (s.capsCountDate && onHand <= num(s.capsReorder)) ? 'var(--red)' : ''; }
+    if ($('sumCapsToday')) $('sumCapsToday').textContent = this.capsToday().toLocaleString();
+    if ($('sumBottlesPlant')) $('sumBottlesPlant').textContent = this.poolPlant().toLocaleString();
+    if ($('sumBottlesOut')) $('sumBottlesOut').textContent = this.poolOut().toLocaleString();
+    $('capsOnHand').textContent = onHand.toLocaleString();
+    $('capsOnHand').style.color = (s.capsCountDate && onHand <= num(s.capsReorder)) ? 'var(--red)' : '';
+    $('capsUsed').textContent = this.capsConsumed().toLocaleString();
+    if ($('capsUsedLbl')) $('capsUsedLbl').textContent = s.capsCountDate ? 'Capped since ' + fmtDate(s.capsCountDate) : 'Used since count';
+    if ($('capsToday')) $('capsToday').textContent = this.capsToday().toLocaleString();
+    $('capsReorderShow').textContent = num(s.capsReorder);
+    $('capsReorder').value = num(s.capsReorder);
+    $('capsStatus').textContent = s.capsCountDate ? ('counted ' + fmtDate(s.capsCountDate)) : 'set your stock to begin';
+
+    $('poolOwned').textContent = num(s.bottlesOwned).toLocaleString();
+    $('poolOut').textContent = this.poolOut().toLocaleString();
+    const plant = this.poolPlant();
+    $('poolPlant').textContent = plant.toLocaleString();
+    $('poolDmg').textContent = this.poolDamaged().toLocaleString();
+    $('poolOwnedInput').value = num(s.bottlesOwned);
+    $('poolStatus').textContent = num(s.bottlesOwned) ? 'fleet set' : 'set your fleet';
+    $('poolWarn').innerHTML = plant < 0
+      ? '<div style="background:var(--red-l);color:var(--red);padding:10px 12px;border-radius:10px;font-weight:600;margin-bottom:12px">⚠ More bottles are out/damaged than you own — recount and update "Total owned".</div>' : '';
+
+    const body = $('itemsTable');
+    if (!s.items.length) body.innerHTML = '<tr><td colspan="5" class="empty"><span class="ic">📦</span>No other items yet</td></tr>';
+    else body.innerHTML = s.items.map(it => {
+      const low = num(it.qty) <= num(it.reorder);
+      return '<tr><td><b>' + esc(it.name) + '</b></td>' +
+        '<td><div style="display:flex;align-items:center;gap:8px"><button class="iconbtn" onclick="Inventory.adjustItem(\'' + it.id + '\',-1)">−</button><b class="num" style="min-width:34px;text-align:center">' + num(it.qty) + '</b><button class="iconbtn" onclick="Inventory.adjustItem(\'' + it.id + '\',1)">＋</button></div></td>' +
+        '<td class="r-money num">' + num(it.reorder) + '</td>' +
+        '<td>' + (low ? '<span class="bdg unpaid">Low</span>' : '<span class="bdg paid">OK</span>') + '</td>' +
+        '<td><button class="iconbtn del" onclick="Inventory.removeItem(\'' + it.id + '\')">🗑️</button></td></tr>';
+    }).join('');
+
+    const alerts = this.lowStock();
+    $('invAlerts').innerHTML = alerts.length
+      ? '<div class="card" style="background:var(--red-l);border-color:var(--red)"><div style="font-weight:700;color:var(--red);margin-bottom:6px">⚠ Low stock — time to reorder</div><div class="mini" style="color:var(--red)">' + alerts.join(' · ') + '</div></div>'
+      : '';
+  }
+};
+
+/* ====================== DATA / BACKUP ====================== */
+const DataTab = {
+  backup() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'aquapack-backup-' + today() + '.json';
+    a.click();
+    toast('Backup downloaded');
+  },
+  restore(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        UI.confirm('Restore backup?', 'This replaces all current data with the backup file.', () => {
+          state = data; save(); location.reload();
+        });
+      } catch (e) { toast('Invalid backup file', 'err'); }
+    };
+    reader.readAsText(file);
+    input.value = '';
+  },
+  reset() {
+    UI.confirm('Reset everything?', 'This permanently deletes ALL data on this device. Download a backup first!', () => {
+      localStorage.removeItem(KEY); location.reload();
+    });
+  },
+  loadSample() {
+    const samples = [
+      { name: 'Ali Raza', type: 'Daily', zone: 'Bahria Phase 4', address: 'House 12, St 5', phone: '0300-1234567', rate: 120, security: 500, opening: 0 },
+      { name: 'Bilal Ahmed', type: 'Monthly', zone: 'DHA Phase 2', address: 'Flat 4B', phone: '0321-7654321', rate: 110, security: 1000, opening: 2200 },
+      { name: 'Saima Khan', type: 'Daily', zone: 'Bahria Phase 4', address: 'House 88', phone: '0333-1112223', rate: 120, security: 500, opening: 0 },
+      { name: 'Hassan Traders', type: 'Monthly', zone: 'Commercial', address: 'Shop 7, Main Market', phone: '0345-9998887', rate: 100, security: 0, opening: 5400 }
+    ];
+    samples.forEach(s => { if (!state.clients.some(c => c.name === s.name)) state.clients.push(Object.assign({ id: uid(), createdAt: today(), size: '19 L', bottlesHeld: 2 }, s)); });
+    save(); Clients.init(); Clients.renderList(); toast('Sample clients added'); switchView('clients');
+  }
+};
+
+/* ====================== CLOUD SYNC (Supabase) ====================== */
+const Cloud = {
+  sb: null, connected: false, syncing: false,
+  _timer: null, _pullTimer: null, _muteUntil: 0,
+  DEFAULT: { url: 'https://pzlhktawtmhlxjajceff.supabase.co', key: 'sb_publishable_84EVAXOsz--3vp9jFx0EDA_Kl3hWeyL' },
+  TABLES: ['clients', 'routes', 'payments', 'invoices', 'expenses', 'fillings'],
+
+  cfg() { return (state.config && state.config.cloud) ? state.config.cloud : null; },
+  arr(t) { return ({ clients: state.clients, routes: state.routes, payments: state.payments, invoices: state.invoices, expenses: state.expenses, fillings: state.fillings })[t] || []; },
+  setArr(t, a) {
+    if (t === 'clients') state.clients = a; else if (t === 'routes') state.routes = a;
+    else if (t === 'payments') state.payments = a; else if (t === 'invoices') state.invoices = a;
+    else if (t === 'expenses') state.expenses = a; else if (t === 'fillings') state.fillings = a;
+  },
+
+  init() {
+    state.config = state.config || {};
+    if (!state.config.cloud) state.config.cloud = Object.assign({}, this.DEFAULT);
+    const c = this.cfg();
+    if ($('cloudUrl')) $('cloudUrl').value = c.url || '';
+    if ($('cloudKey')) $('cloudKey').value = c.key || '';
+    if (c.url && c.key) this.connect(false);
+    else this.status('off');
+  },
+
+  saveAndConnect() {
+    let url = ($('cloudUrl').value || '').trim().replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+    const key = ($('cloudKey').value || '').trim();
+    if (!url || !key) { toast('Enter both URL and key', 'err'); return; }
+    state.config = state.config || {};
+    state.config.cloud = { url, key };
+    save();
+    this.connect(true);
+  },
+  disconnect() {
+    if (this._chan && this.sb) try { this.sb.removeChannel(this._chan); } catch (e) {}
+    this.sb = null; this.connected = false; this._chan = null;
+    if (state.config) state.config.cloud = null;
+    save(); this.status('off'); toast('Disconnected from cloud');
+  },
+
+  async connect(announce) {
+    const c = this.cfg();
+    if (!c || !c.url || !c.key) { this.status('off'); return; }
+    if (!window.supabase || !window.supabase.createClient) { this.status('error', 'Sync library failed to load — check your internet'); return; }
+    try {
+      this.status('connecting');
+      this.sb = window.supabase.createClient(c.url, c.key, { realtime: { params: { eventsPerSecond: 2 } } });
+      await this.pull();          // cloud first
+      await this.push();          // then send local-only records
+      this.subscribe();
+      this.connected = true;
+      this.status('on');
+      if (announce) toast('Cloud connected — data is syncing ☁️');
+    } catch (e) {
+      console.error('connect', e);
+      this.connected = false;
+      this.status('error', this.friendly(e));
+      if (announce) toast('Could not connect: ' + this.friendly(e), 'err');
+    }
+  },
+
+  async push() {
+    if (!this.sb) return;
+    const stamp = new Date().toISOString();
+    const tomb = state._tomb || {};
+    for (const t of this.TABLES) {
+      const dead = new Set((tomb[t] || []).map(String));
+      const rows = this.arr(t).filter(r => !dead.has(String(r.id))).map(r => ({ id: String(r.id), data: r, updated_at: stamp }));
+      if (rows.length) { const { error } = await this.sb.from(t).upsert(rows); if (error) throw error; }
+    }
+    const meta = [{ id: 'inventory', data: state.inventory }, { id: 'seq', data: state.seq }, { id: 'sizeRates', data: state.sizeRates }, { id: 'fillRate', data: { v: state.fillRate } }, { id: 'stock', data: state.stock }, { id: 'security', data: state.security }, { id: 'cashbook', data: { v: state.cashbook || [] } }, { id: 'reminders', data: { v: state.reminders || [] } }, { id: 'tombstones', data: state._tomb || {} }]
+      .map(m => ({ id: m.id, data: m.data, updated_at: stamp }));
+    { const { error } = await this.sb.from('meta').upsert(meta); if (error) throw error; }
+    // flush deletes
+    const del = state._del || {};
+    for (const t of Object.keys(del)) {
+      const ids = (del[t] || []).map(String);
+      if (ids.length) { const { error } = await this.sb.from(t).delete().in('id', ids); if (!error) del[t] = []; }
+    }
+    state._del = del;
+    this._muteUntil = Date.now() + 1500;  // ignore our own echo
+    if (state.config && state.config.cloud) state.config.cloud.lastSync = stamp;
+  },
+
+  async pull() {
+    if (!this.sb) return;
+    // load the permanent tombstone list first so deletions stay deleted on every device
+    try {
+      const { data: tombRow } = await this.sb.from('meta').select('data').eq('id', 'tombstones');
+      const cloudTomb = (tombRow && tombRow[0] && tombRow[0].data) || {};
+      state._tomb = state._tomb || {};
+      for (const k of Object.keys(cloudTomb)) {
+        const merged = new Set([...(state._tomb[k] || []), ...((cloudTomb[k]) || [])].map(String));
+        state._tomb[k] = [...merged];
+      }
+    } catch (e) {}
+    const tomb = state._tomb || {};
+    for (const t of this.TABLES) {
+      const { data, error } = await this.sb.from(t).select('id,data');
+      if (error) throw error;
+      const byId = {};
+      this.arr(t).forEach(r => byId[String(r.id)] = r);
+      (data || []).forEach(row => { byId[String(row.id)] = row.data; });
+      const del = (state._del && state._del[t]) || [];
+      del.forEach(id => delete byId[String(id)]);
+      (tomb[t] || []).forEach(id => delete byId[String(id)]);
+      this.setArr(t, Object.values(byId));
+    }
+    try {
+      const { data: m } = await this.sb.from('meta').select('id,data');
+      (m || []).forEach(r => {
+        if (r.id === 'inventory' && r.data) state.inventory = r.data;
+        if (r.id === 'seq' && r.data) state.seq = r.data;
+        if (r.id === 'sizeRates' && r.data) state.sizeRates = r.data;
+        if (r.id === 'fillRate' && r.data && r.data.v != null) state.fillRate = r.data.v;
+        if (r.id === 'stock' && r.data) state.stock = r.data;
+        if (r.id === 'security' && r.data) { state.security = r.data; if (r.data.adminPin) localStorage.setItem('aqua_admin_pin', r.data.adminPin); }
+        if (r.id === 'cashbook' && r.data && Array.isArray(r.data.v)) state.cashbook = r.data.v;
+        if (r.id === 'reminders' && r.data && Array.isArray(r.data.v)) state.reminders = r.data.v;
+      });
+    } catch (e) {}
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    this.repaint();
+  },
+
+  subscribe() {
+    if (!this.sb) return;
+    if (this._chan) try { this.sb.removeChannel(this._chan); } catch (e) {}
+    this._chan = this.sb.channel('aqua-sync')
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+        if (Date.now() < this._muteUntil) return;     // skip our own writes
+        clearTimeout(this._pullTimer);
+        this._pullTimer = setTimeout(() => { if (!this.syncing) this.pull().catch(console.error); }, 700);
+      })
+      .subscribe(st => { if (st === 'SUBSCRIBED') this.status('on'); });
+  },
+
+  markDirty() {
+    if (!this.connected) return;
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => this.syncNow(), 1500);
+  },
+  async syncNow(announce) {
+    if (!this.sb) { if (announce) toast('Not connected to cloud', 'err'); return; }
+    if (this.syncing) return;
+    this.syncing = true; this.status('syncing');
+    // push first so a fresh local edit can't be overwritten by a stale cloud copy, then pull others' changes
+    try { await this.push(); await this.pull(); this.status('on'); if (announce) toast('Synced ☁️'); }
+    catch (e) { console.error('sync', e); this.status('error', this.friendly(e)); if (announce) toast('Sync failed: ' + this.friendly(e), 'err'); }
+    this.syncing = false;
+  },
+
+  repaint() {
+    try { Dashboard.render(); } catch (e) {}
+    try { Clients.renderList(); } catch (e) {}
+    try { Invoices.renderList(); } catch (e) {}
+    try { Expenses.render(); } catch (e) {}
+    try { RouteSheet.renderArchive(); } catch (e) {}
+    try { Filling.render(); } catch (e) {}
+    try { Inventory.render(); } catch (e) {}
+  },
+
+  friendly(e) {
+    const m = (e && e.message) || String(e);
+    if (/relation .* does not exist|Could not find the table/i.test(m)) return 'Tables not found — run the setup SQL in Supabase first';
+    if (/JWT|api key|Invalid/i.test(m)) return 'Key rejected — check the publishable key';
+    if (/Failed to fetch|NetworkError/i.test(m)) return 'No connection to Supabase';
+    return m;
+  },
+
+  status(s, msg) {
+    const dot = $('cloudDot'), txt = $('cloudState'), panel = $('cloudPanelStatus'), info = $('cloudInfo');
+    const map = {
+      off: ['var(--ink-faint)', 'Local only', 'Not connected'],
+      connecting: ['var(--amber)', 'Connecting…', 'Connecting…'],
+      syncing: ['var(--amber)', 'Syncing…', 'Syncing…'],
+      on: ['var(--green)', 'Cloud synced', 'Connected ✓'],
+      error: ['var(--red)', 'Sync error', 'Error']
+    };
+    const m = map[s] || map.off;
+    if (dot) dot.style.background = m[0];
+    if (txt) txt.textContent = m[1];
+    if (panel) panel.textContent = m[2];
+    if (info) {
+      const last = (state.config && state.config.cloud && state.config.cloud.lastSync);
+      info.innerHTML = (s === 'error' && msg) ? '<span style="color:var(--red)">⚠ ' + esc(msg) + '</span>'
+        : (s === 'on' && last) ? 'Last synced ' + new Date(last).toLocaleString('en-GB') : '';
+    }
+  }
+};
+
+/* ====================== REMINDERS / TO-DO ====================== */
+const Reminders = {
+  add() {
+    const t = ($('remInput').value || '').trim();
+    if (!t) return;
+    state.reminders = state.reminders || [];
+    state.reminders.unshift({ id: uid(), text: t, done: false, at: today() });
+    $('remInput').value = '';
+    save(); this.render();
+  },
+  toggle(id) { const r = (state.reminders || []).find(x => x.id === id); if (r) { r.done = !r.done; save(); this.render(); } },
+  remove(id) { state.reminders = (state.reminders || []).filter(x => x.id !== id); save(); this.render(); },
+  render() {
+    const list = state.reminders || [];
+    const pending = list.filter(r => !r.done).length;
+    if ($('remPending')) { $('remPending').textContent = pending + ' to do'; $('remPending').style.background = pending ? 'var(--amber)' : 'var(--green)'; $('remPending').style.color = '#fff'; }
+    const body = $('remList'); if (!body) return;
+    if (!list.length) { body.innerHTML = '<div class="mini" style="color:var(--ink-faint);padding:4px 0">Nothing here yet. Write your first reminder above. 👆</div>'; return; }
+    const sorted = list.slice().sort((a, b) => (a.done === b.done) ? 0 : (a.done ? 1 : -1));
+    body.innerHTML = sorted.map(r =>
+      '<div class="flexspace" style="padding:9px 0;border-bottom:1px solid var(--line)">' +
+      '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1">' +
+      '<input type="checkbox" ' + (r.done ? 'checked' : '') + ' onchange="Reminders.toggle(\'' + r.id + '\')" style="width:18px;height:18px;flex:none">' +
+      '<span style="font-size:14px;' + (r.done ? 'text-decoration:line-through;color:var(--ink-faint)' : '') + '">' + esc(r.text) + '</span></label>' +
+      '<button class="iconbtn del" style="flex:none" onclick="Reminders.remove(\'' + r.id + '\')">🗑️</button></div>'
+    ).join('');
+  }
+};
+
+/* ====================== COLLECTIONS (aging + WhatsApp + cash in hand) ====================== */
+const Collections = {
+  init() { if ($('cbDate')) $('cbDate').value = today(); },
+  render() { this.renderAging(); this.renderCash(); },
+  ageDays(id) { const s = lastUnpaidDate(id); return s ? daysSince(s) : 0; },
+  renderAging() {
+    const rows = [];
+    state.clients.forEach(c => {
+      if (isMonthly(c)) {
+        const L = monthlyBook(c.id);
+        if (L.overdue > 0) rows.push({ c, bal: L.overdue, accruing: L.accruing, days: L.overdueSince ? daysSince(L.overdueSince) : 0, monthly: true });
+      } else {
+        const bal = clientBalance(c.id);
+        if (bal > 0) rows.push({ c, bal, accruing: 0, days: this.ageDays(c.id), monthly: false });
+      }
+    });
+    rows.sort((a, b) => b.days - a.days);
+    let t0 = 0, t8 = 0, t30 = 0;
+    rows.forEach(x => { if (x.days <= 7) t0 += x.bal; else if (x.days <= 30) t8 += x.bal; else t30 += x.bal; });
+    $('agTotal').textContent = pkr(t0 + t8 + t30); $('ag0').textContent = pkr(t0); $('ag8').textContent = pkr(t8); $('ag30').textContent = pkr(t30);
+    const body = $('agTable');
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="empty"><span class="ic">🎉</span>No overdue balances — everyone\u2019s clear!</td></tr>'; return; }
+    body.innerHTML = rows.map(x => {
+      const badge = x.days <= 7 ? '<span class="bdg paid">' + x.days + 'd</span>' : x.days <= 30 ? '<span class="bdg monthly">' + x.days + 'd</span>' : '<span class="bdg unpaid">' + x.days + 'd</span>';
+      const accrue = (x.monthly && x.accruing > 0) ? '<div class="mini" style="color:#999">+ ' + pkr(x.accruing) + ' unbilled · not on an invoice yet</div>' : '';
+      return '<tr><td><b>' + esc(x.c.name) + '</b>' + (x.monthly ? ' <span class="bdg monthly" style="font-size:10px">monthly</span>' : '') + accrue + '</td><td class="hide-sm mini">' + esc(x.c.zone || '—') + '</td>' +
+        '<td class="r-money money-bal">' + pkr(x.bal) + '</td><td>' + badge + '</td>' +
+        '<td><div class="row-actions"><button class="iconbtn" title="Ledger" onclick="Ledger.open(\'' + x.c.id + '\')">📒</button>' +
+        '<button class="btn green sm" style="flex:none" onclick="Collections.remind(\'' + x.c.id + '\')">💬 Remind</button></div></td></tr>';
+    }).join('');
+  },
+  normPhone(p) {
+    let d = String(p || '').replace(/[^0-9]/g, '');
+    if (!d) return '';
+    if (d.startsWith('92')) return d;
+    if (d.startsWith('0')) return '92' + d.slice(1);
+    if (d.startsWith('3')) return '92' + d;
+    return d;
+  },
+  remind(id) {
+    const c = getClient(id); if (!c) return;
+    const bal = isMonthly(c) ? monthlyBook(id).overdue : clientBalance(id);
+    this._remPhone = this.normPhone(c.phone);
+    const msg = 'Assalam o Alaikum ' + (c.name || '') + '! Aqua Pack ki taraf se yaad-dahani: aap ka balance PKR ' + Math.round(bal).toLocaleString() + ' hai. Meharbani farma kar payment kar dein. Shukria!';
+    $('remindText').value = msg;
+    $('remindModal').classList.add('show');
+  },
+  closeMsg() { $('remindModal').classList.remove('show'); },
+  copyMsg() {
+    const t = $('remindText'); t.select();
+    const done = () => toast('Message copied — paste it into WhatsApp');
+    try { navigator.clipboard.writeText(t.value).then(done, () => { document.execCommand('copy'); done(); }); }
+    catch (e) { try { document.execCommand('copy'); done(); } catch (e2) { toast('Select the text and copy it', 'err'); } }
+  },
+  openWa() {
+    if (!this._remPhone) { toast('No phone saved — copy the message instead', 'err'); return; }
+    window.open('https://wa.me/' + this._remPhone + '?text=' + encodeURIComponent($('remindText').value), '_blank');
+  },
+  /* ---- cash in hand ---- */
+  cashBalance() { return (state.cashbook || []).reduce((s, e) => s + (e.dir === 'in' ? num(e.amount) : -num(e.amount)), 0); },
+  addCash() {
+    const amt = num($('cbAmt').value);
+    if (amt <= 0) { toast('Enter an amount', 'err'); return; }
+    state.cashbook = state.cashbook || [];
+    state.cashbook.push({ id: uid(), date: $('cbDate').value || today(), dir: $('cbDir').value, amount: amt, note: $('cbNote').value.trim() });
+    save(); $('cbAmt').value = ''; $('cbNote').value = ''; this.renderCash();
+    toast('Cash entry saved');
+  },
+  removeCash(id) { state.cashbook = (state.cashbook || []).filter(e => e.id !== id); save(); this.renderCash(); toast('Entry removed'); },
+  renderCash() {
+    const list = (state.cashbook || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    let run = 0; list.forEach(e => { run += e.dir === 'in' ? num(e.amount) : -num(e.amount); e._run = run; });
+    if ($('cashNow')) $('cashNow').textContent = pkr(this.cashBalance());
+    const body = $('cbTable'); if (!body) return;
+    if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="empty"><span class="ic">💵</span>No cash entries yet</td></tr>'; return; }
+    body.innerHTML = list.slice().reverse().map(e =>
+      '<tr><td>' + fmtDate(e.date) + '</td><td>' + esc(e.note || (e.dir === 'in' ? 'Received' : 'Handed over')) + '</td>' +
+      '<td class="r-money num money-pos">' + (e.dir === 'in' ? pkr(e.amount) : '—') + '</td>' +
+      '<td class="r-money num">' + (e.dir === 'out' ? pkr(e.amount) : '—') + '</td>' +
+      '<td class="r-money num"><b>' + pkr(e._run) + '</b></td>' +
+      '<td><button class="iconbtn del" onclick="Collections.removeCash(\'' + e.id + '\')">🗑️</button></td></tr>'
+    ).join('');
+  }
+};
+
+/* ====================== ACCOUNTS CHECK (self-audit) ====================== */
+const AccountsCheck = {
+  cashTally() {
+    const t = today();
+    let delCash = 0, fillCash = 0, payCash = 0;
+    state.routes.forEach(r => { if (r.date === t) (r.rows || []).forEach(row => delCash += num(row.received)); });
+    state.fillings.forEach(f => { if (f.date === t) fillCash += fillRecv(f); });
+    state.payments.forEach(p => { if (p.date === t) payCash += num(p.amount); });
+    return { delCash, fillCash, payCash, total: delCash + fillCash + payCash };
+  },
+  scan() {
+    const errors = [], warns = [];
+    // 1. deliveries billed at 0
+    let zeroRows = 0, zeroEx = '';
+    state.routes.forEach(r => (r.rows || []).forEach(row => {
+      if (num(row.qty) > 0 && num(row.total) <= 0) { zeroRows++; if (!zeroEx) zeroEx = (row.name || 'a customer') + ' on ' + fmtDate(r.date); }
+    }));
+    if (zeroRows) errors.push({ text: zeroRows + ' delivery(s) billed at PKR 0 (e.g. ' + zeroEx + ') — likely a missing rate.', go: "switchView('route')", btn: 'Open routes' });
+    // 2. negative caps
+    if (state.stock && state.stock.capsCountDate && Inventory.capsOnHand() < 0)
+      errors.push({ text: 'Caps stock is negative (' + Inventory.capsOnHand() + ') — recount and set current stock.', go: "switchView('inventory')", btn: 'Fix stock' });
+    // 3. bottles in plant negative
+    if (Inventory.poolPlant() < 0)
+      errors.push({ text: 'More bottles are out/damaged than you own (' + Inventory.poolPlant() + ' in plant) — recount your fleet.', go: "switchView('inventory')", btn: 'Fix fleet' });
+    // 4. credit filling with no customer (money floating)
+    let floatFill = 0;
+    state.fillings.forEach(f => { if (fillBal(f) > 0 && !f.clientId) floatFill++; });
+    if (floatFill) errors.push({ text: floatFill + ' unpaid filling(s) are not linked to any customer — that money is floating.', go: "switchView('filling')", btn: 'Open filling' });
+
+    // --- warnings ---
+    state.clients.forEach(c => {
+      const bal = clientBalance(c.id);
+      if (bal < 0) warns.push({ text: esc(c.name) + ' has advance/credit of ' + pkr(-bal) + ' (they paid more than owed).', go: "Ledger.open('" + c.id + "')", btn: 'View' });
+      else if (bal > 0) {
+        const since = lastUnpaidDate(c.id);
+        if (since && daysSince(since) >= 30) warns.push({ text: esc(c.name) + ' owes ' + pkr(bal) + ' — unpaid for ' + daysSince(since) + ' days.', go: "Ledger.open('" + c.id + "')", btn: 'Chase' });
+      }
+      if (num(c.rate) <= 0) warns.push({ text: esc(c.name) + ' has no rate set — deliveries will bill 0.', go: "Clients.edit('" + c.id + "')", btn: 'Set rate' });
+    });
+    // duplicates
+    const seen = {};
+    state.clients.forEach(c => { const k = (c.name || '').trim().toLowerCase(); if (k) { seen[k] = (seen[k] || 0) + 1; } });
+    Object.keys(seen).forEach(k => { if (seen[k] > 1) warns.push({ text: 'Possible duplicate customer: "' + esc(k) + '" appears ' + seen[k] + ' times.', go: "switchView('clients')", btn: 'Review' }); });
+    // low stock
+    const low = Inventory.lowStock();
+    if (low.length) warns.push({ text: 'Low stock — ' + low.join(', ') + '.', go: "switchView('inventory')", btn: 'Reorder' });
+
+    return { errors, warns };
+  },
+  count() { const s = this.scan(); return s.errors.length + s.warns.length; },
+  updateBadge() {
+    const n = this.scan().errors.length; // badge = serious issues only
+    const b = $('checkBadge'); if (!b) return;
+    if (n > 0) { b.textContent = n; b.style.display = 'inline-grid'; } else { b.style.display = 'none'; }
+  },
+  render() {
+    // cash tally
+    const c = this.cashTally();
+    $('cashTally').innerHTML =
+      '<table style="width:100%;border-collapse:collapse;font-size:14px">' +
+      '<tr><td style="padding:6px 0;color:var(--ink-soft)">Cash taken on deliveries today</td><td class="r-money num" style="padding:6px 0">' + pkr(c.delCash) + '</td></tr>' +
+      '<tr><td style="padding:6px 0;color:var(--ink-soft)">Cash from plant filling today</td><td class="r-money num" style="padding:6px 0">' + pkr(c.fillCash) + '</td></tr>' +
+      '<tr><td style="padding:6px 0;color:var(--ink-soft)">Old-balance collections / payments today</td><td class="r-money num" style="padding:6px 0">' + pkr(c.payCash) + '</td></tr>' +
+      '<tr style="font-size:17px"><td style="padding:10px 0;border-top:2px solid var(--primary);font-weight:800">You should have in hand today</td><td class="r-money num" style="padding:10px 0;border-top:2px solid var(--primary);font-weight:800;color:var(--primary)">' + pkr(c.total) + '</td></tr>' +
+      '</table><p class="mini" style="margin-top:8px">Match this against the cash the driver/owner actually hands you. If it\u2019s short, you\u2019ll know today.</p>';
+
+    // issues
+    const { errors, warns } = this.scan();
+    if (!errors.length && !warns.length) {
+      $('checkHeadline').textContent = '✓ Everything reconciles';
+      $('checkSub').textContent = 'No problems found. Your books are clean.';
+    } else {
+      $('checkHeadline').textContent = (errors.length ? errors.length + ' need fixing' : 'Looking good') + (warns.length ? ' · ' + warns.length + ' to review' : '');
+      $('checkSub').textContent = errors.length ? 'Fix the red items before reporting to the owner.' : 'No serious problems — just a few things worth a look.';
+    }
+    const block = (title, cls, items) => items.length
+      ? '<div class="card"><div class="card-h"><h3>' + title + '</h3><span class="pill">' + items.length + '</span></div>' +
+        items.map(i => '<div class="flexspace" style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="font-size:14px">' + i.text + '</div>' +
+          (i.go ? '<button class="btn ghost sm" style="flex:none" onclick="' + i.go + '">' + (i.btn || 'Open') + '</button>' : '') + '</div>').join('') +
+        '</div>'
+      : '';
+    let html = block('🔴 Needs fixing', 'err', errors) + block('🟡 Worth a look', 'warn', warns);
+    if (!html) html = '<div class="card"><div class="empty" style="color:var(--green)"><span class="ic">✅</span>All clear — nothing to fix.</div></div>';
+    $('checkBody').innerHTML = html;
+    this.updateBadge();
+  }
+};
+
+/* ====================== APP LOCK (PIN) ====================== */
+const Lock = {
+  adminPin() { return localStorage.getItem('aqua_admin_pin') || (state.security && state.security.adminPin) || '1218'; },
+  boot() {
+    if (sessionStorage.getItem('aqua_admin_ok') === '1') { this.hide(); return; }
+    const inp = $('lockPin');
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') this.check(); });
+    setTimeout(() => inp.focus(), 120);
+  },
+  check() {
+    const v = ($('lockPin').value || '').trim();
+    if (v && v === this.adminPin()) { sessionStorage.setItem('aqua_admin_ok', '1'); this.hide(); }
+    else { $('lockErr').textContent = 'Wrong PIN — try again'; $('lockPin').value = ''; $('lockPin').focus(); }
+  },
+  hide() { $('lockScreen').classList.add('hidden'); },
+  lock() { sessionStorage.removeItem('aqua_admin_ok'); $('lockPin').value = ''; $('lockErr').textContent = ''; $('lockScreen').classList.remove('hidden'); setTimeout(() => $('lockPin').focus(), 100); },
+  cache() {
+    if (state.security && state.security.adminPin) localStorage.setItem('aqua_admin_pin', state.security.adminPin);
+    if ($('secAdminPin') && state.security) { $('secAdminPin').value = state.security.adminPin || '1218'; $('secDriverPin').value = state.security.driverPin || '0000'; }
+  },
+  savePins() {
+    if (!state.security) state.security = {};
+    state.security.adminPin = ($('secAdminPin').value || '').trim() || '1218';
+    state.security.driverPin = ($('secDriverPin').value || '').trim() || '0000';
+    localStorage.setItem('aqua_admin_pin', state.security.adminPin);
+    save();
+    toast('PINs saved — synced to your devices');
+  }
+};
+
+/* ====================== INIT ====================== */
+document.addEventListener('DOMContentLoaded', () => {
+  Lock.boot();
+  load();
+  Lock.cache();
+  // tab nav
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
+  // route totals live update on header expense fields
+  ['rFuel', 'rFood', 'rOther'].forEach(id => $(id).addEventListener('input', () => RouteSheet.renderTotals()));
+  // init modules
+  Clients.init();
+  RouteSheet.init();
+  Ledger.init();
+  Invoices.init();
+  Expenses.init();
+  Filling.init();
+  Inventory.init();
+  Collections.init();
+  Clients.clearForm();
+  // first paint
+  Dashboard.render();
+  Filling.render();
+  Inventory.render();
+  try { AccountsCheck.updateBadge(); } catch (e) {}
+  // cloud sync (connects automatically if configured)
+  Cloud.init();
+  // warn before closing with an unsaved route
+  window.addEventListener('beforeunload', e => { if (RouteSheet.isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+});
+
+</script>
+</body>
+</html>

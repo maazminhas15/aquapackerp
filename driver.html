@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0e7c9a">
+<title>Aqua Pack — Driver</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚚</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚚</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#0d1b24;--surface:#152935;--surface-2:#1d3543;--line:#2a4453;
+  --ink:#eef6fa;--ink-soft:#9fb6c2;--ink-faint:#6f8896;
+  --primary:#19a7cc;--primary-d:#1488a8;--green:#22c187;--green-d:#0f9d6b;
+  --red:#ff6b5e;--amber:#f0b32a;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.45;padding-bottom:40px}
+.num{font-variant-numeric:tabular-nums}
+input,select,button{font-family:inherit;font-size:16px}
+button{cursor:pointer;border:none;background:none;color:inherit}
+
+header{position:sticky;top:0;z-index:30;background:linear-gradient(160deg,#0e7c9a,#13a4c9);padding:14px 16px;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+.h-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.h-brand{display:flex;align-items:center;gap:9px}
+.h-logo{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:19px}
+.h-brand b{font-size:16px;letter-spacing:.02em;display:block;line-height:1.1}
+.h-brand small{font-size:11px;opacity:.85}
+.h-chip{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;background:rgba(255,255,255,.16);padding:5px 9px;border-radius:20px}
+.h-chip .dot{width:8px;height:8px;border-radius:50%;background:#ffd24d}
+.h-meta{margin-top:10px;display:flex;gap:8px;font-size:12px;opacity:.95}
+.h-meta span{background:rgba(255,255,255,.16);padding:4px 10px;border-radius:8px;font-weight:600}
+
+.wrap{padding:14px 14px 30px;max-width:560px;margin:0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.card h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);margin-bottom:12px;font-weight:700}
+
+.cashbar{background:linear-gradient(135deg,var(--green-d),var(--green));border-radius:16px;padding:16px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.cashbar .lbl{font-size:12px;font-weight:600;opacity:.9}
+.cashbar .val{font-size:28px;font-weight:800;margin-top:2px}
+.cashbar .side{text-align:right;font-size:12px;opacity:.95;font-weight:600}
+
+label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px}
+.inp{width:100%;background:var(--surface-2);border:2px solid var(--line);color:var(--ink);padding:13px 14px;border-radius:12px;font-size:16px}
+.inp:focus{outline:none;border-color:var(--primary)}
+.big-num{font-size:20px;font-weight:700;text-align:center}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:15px;border-radius:14px;font-weight:700;font-size:16px;transition:.1s}
+.btn:active{transform:scale(.98)}
+.btn.pri{background:var(--primary);color:#fff}
+.btn.green{background:var(--green);color:#06281c}
+.btn.ghost{background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)}
+.btn.sm{padding:11px;font-size:14px;width:auto}
+
+.ac-wrap{position:relative}
+.ac-list{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.5);max-height:340px;overflow-y:auto;z-index:40;display:none}
+.ac-list.show{display:block}
+.ac-item{padding:14px;border-bottom:1px solid var(--surface-2);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ac-item:active{background:var(--surface-2)}
+.ac-item .nm{font-weight:700;font-size:16px}
+.ac-item .meta{font-size:12px;color:var(--ink-soft);margin-top:2px}
+.ac-add{color:var(--primary);font-weight:700;justify-content:center}
+
+.bdg{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.bdg.daily{background:rgba(34,193,135,.18);color:var(--green)}
+.bdg.monthly{background:rgba(25,167,204,.18);color:var(--primary)}
+.bdg.due{background:rgba(255,107,94,.18);color:var(--red)}
+.bdg.clear{background:rgba(34,193,135,.18);color:var(--green)}
+
+.deliv{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--surface-2)}
+.deliv:last-child{border-bottom:none}
+.deliv .nm{font-weight:600}
+.deliv .sub{font-size:12px;color:var(--ink-soft)}
+.deliv .amt{font-weight:700;color:var(--green)}
+.empty{text-align:center;color:var(--ink-faint);padding:24px 10px;font-size:14px}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;align-items:flex-end;justify-content:center}
+.overlay.show{display:flex}
+.sheet{background:var(--surface);width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto;animation:up .22s}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.sheet-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.sheet-h h2{font-size:19px}
+.x{width:38px;height:38px;border-radius:11px;background:var(--surface-2);display:grid;place-items:center;font-size:20px}
+.infobox{background:var(--surface-2);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.due-strip{background:rgba(255,107,94,.12);border:1px solid rgba(255,107,94,.3);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.due-strip .big{font-size:22px;font-weight:800;color:var(--red)}
+.qty-row{display:flex;gap:10px;align-items:center;justify-content:center;margin:4px 0}
+.qbtn{width:52px;height:52px;border-radius:14px;background:var(--surface-2);border:1.5px solid var(--line);font-size:24px;font-weight:700;display:grid;place-items:center}
+.qbtn:active{background:var(--primary);color:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,90px);background:#0a3d2e;color:#fff;padding:13px 20px;border-radius:14px;font-weight:700;font-size:15px;z-index:200;opacity:0;transition:.25s;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.toast.show{transform:translate(-50%,0);opacity:1}
+.toast.err{background:#5e1a14}
+.mini{font-size:12px;color:var(--ink-soft)}
+.center{text-align:center}
+/* lock screen */
+.lock{position:fixed;inset:0;z-index:500;background:linear-gradient(165deg,#19a7cc,#0d1b24);display:flex;align-items:center;justify-content:center;padding:22px}
+.lock.hidden{display:none}
+.lock-box{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:34px 24px;width:100%;max-width:340px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+.lock-logo{width:60px;height:60px;border-radius:18px;background:linear-gradient(140deg,var(--primary),#13c4e0);display:grid;place-items:center;font-size:30px;margin:0 auto 14px}
+.lock-box h2{font-size:22px}
+.lock-sub{color:var(--ink-soft);font-size:14px;margin:6px 0 20px}
+.lock-input{width:100%;text-align:center;font-size:30px;letter-spacing:10px;padding:14px;border:2px solid var(--line);border-radius:14px;background:var(--surface-2);color:var(--ink);margin-bottom:10px}
+.lock-input:focus{outline:none;border-color:var(--primary)}
+.lock-err{color:var(--red);font-size:14px;font-weight:600;min-height:20px;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div id="lockScreen" class="lock">
+  <div class="lock-box">
+    <div class="lock-logo">🚚</div>
+    <h2>Aqua Pack</h2>
+    <p class="lock-sub">Enter your PIN to start</p>
+    <input type="password" id="lockPin" class="lock-input" inputmode="numeric" maxlength="10" placeholder="••••" autocomplete="off">
+    <div id="lockErr" class="lock-err"></div>
+    <button class="btn pri block" onclick="DriverLock.check()">Unlock</button>
+  </div>
+</div>
+
+<header>
+  <div class="h-row">
+    <div class="h-brand">
+      <div class="h-logo">🚚</div>
+      <div><b>Aqua Pack</b><small>Driver app</small></div>
+    </div>
+    <div class="h-chip" onclick="App.reload()"><span class="dot" id="dot"></span><span id="conn">Connecting…</span></div>
+  </div>
+  <div class="h-meta">
+    <span id="hDriver">Driver</span>
+    <span id="hVehicle">Vehicle</span>
+    <span id="hDate"></span>
+    <span onclick="App.openSetup()" style="margin-left:auto;cursor:pointer">⚙︎ Change</span>
+  </div>
+</header>
+
+<div class="wrap" id="appWrap" style="display:none">
+
+  <div class="cashbar">
+    <div><div class="lbl">Cash in hand today</div><div class="val num" id="cashHand">PKR 0</div></div>
+    <div class="side"><span id="stopCount">0</span> stops<br><span id="bottleCount">0</span> bottles</div>
+  </div>
+
+  <div class="card">
+    <h3>Add a delivery</h3>
+    <div class="ac-wrap">
+      <input type="text" id="search" class="inp" autocomplete="off" placeholder="🔍 Type client name… (e.g. Ali)">
+      <div id="ac" class="ac-list"></div>
+    </div>
+    <p class="mini" style="margin-top:8px">Tap a client to record what you delivered. New customer? Type their name and tap “Add new”.</p>
+  </div>
+
+  <div class="card">
+    <h3>Today's deliveries</h3>
+    <div id="todayList"><div class="empty">No deliveries logged yet today.</div></div>
+  </div>
+
+</div>
+
+<!-- setup screen -->
+<div class="wrap" id="setupWrap" style="display:none">
+  <div class="card">
+    <h3>Who's driving today?</h3>
+    <div style="margin-bottom:12px"><label>Your name</label><input type="text" id="setName" class="inp" placeholder="e.g. Imran"></div>
+    <div style="margin-bottom:16px"><label>Vehicle number</label><input type="text" id="setVehicle" class="inp" placeholder="e.g. TB-102"></div>
+    <button class="btn pri" onclick="App.saveSetup()">Start my route ➜</button>
+    <p class="mini center" style="margin-top:12px">Saved on this phone — you won't be asked again.</p>
+  </div>
+</div>
+
+<!-- delivery sheet -->
+<div class="overlay" id="deliverSheet">
+  <div class="sheet">
+    <div class="sheet-h"><h2 id="ds-name">Client</h2><button class="x" onclick="App.closeDeliver()">×</button></div>
+    <div class="infobox" id="ds-info"></div>
+    <div id="ds-due"></div>
+
+    <label>Bottles delivered</label>
+    <div class="qty-row">
+      <button class="qbtn" onclick="App.bump(-1)">−</button>
+      <input type="number" id="ds-qty" class="inp big-num" style="width:90px" value="1" oninput="App.recalc()">
+      <button class="qbtn" onclick="App.bump(1)">＋</button>
+    </div>
+
+    <div class="grid2" style="margin-top:12px">
+      <div><label>Rate / bottle</label><input type="number" id="ds-rate" class="inp num" oninput="App.recalc()"></div>
+      <div><label>Total amount</label><input type="text" id="ds-total" class="inp num" readonly style="background:var(--surface)"></div>
+    </div>
+
+    <div style="margin-top:12px"><label>Cash received for bottles</label><input type="number" id="ds-cash" class="inp num" placeholder="0" oninput="App.recalc()"></div>
+
+    <div id="ds-collect" style="margin-top:12px;display:none">
+      <label>Also collecting old balance? (optional)</label>
+      <input type="number" id="ds-old" class="inp num" value="0">
+    </div>
+
+    <div class="infobox" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
+      <span class="mini">Goes to their balance</span>
+      <b id="ds-bal" class="num">PKR 0</b>
+    </div>
+
+    <button class="btn green" style="margin-top:6px" onclick="App.addDelivery()">✓ Save delivery</button>
+  </div>
+</div>
+
+<!-- new client sheet -->
+<div class="overlay" id="newSheet">
+  <div class="sheet">
+    <div class="sheet-h"><h2>New customer</h2><button class="x" onclick="App.closeNew()">×</button></div>
+    <div style="margin-bottom:11px"><label>Name</label><input type="text" id="nc-name" class="inp"></div>
+    <div class="grid2" style="margin-bottom:11px">
+      <div><label>Type</label><select id="nc-type" class="inp"><option value="Daily">Daily (cash)</option><option value="Monthly">Monthly</option></select></div>
+      <div><label>Rate / bottle</label><input type="number" id="nc-rate" class="inp num" value="120"></div>
+    </div>
+    <div style="margin-bottom:11px"><label>Area</label><input type="text" id="nc-zone" class="inp" placeholder="optional"></div>
+    <div style="margin-bottom:16px"><label>Address</label><input type="text" id="nc-addr" class="inp" placeholder="optional"></div>
+    <button class="btn pri" onclick="App.saveNew()">Save & continue</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ===== Aqua Pack — Driver app =====
+   Reads clients to let the driver pick, writes his deliveries to the same
+   `routes` table the owner reads (so entries appear live on the laptop).
+   Shows balances ONLY for daily clients. No totals/profit/monthly balances. */
+
+const SUPA = {
+  url: 'https://pzlhktawtmhlxjajceff.supabase.co',
+  key: 'sb_publishable_84EVAXOsz--3vp9jFx0EDA_Kl3hWeyL'
+};
+
+const sb = window.supabase.createClient(SUPA.url, SUPA.key);
+
+const $ = id => document.getElementById(id);
+const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pkr = n => 'PKR ' + Math.round(num(n)).toLocaleString('en-PK');
+const today = () => new Date().toISOString().slice(0, 10);
+const slug = s => (s || 'driver').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'driver';
+
+function toast(msg, err) {
+  const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.className = 'toast', 2400);
+}
+
+const App = {
+  clients: [], routes: [], payments: [], queue: [],
+  route: null,          // today's route record for this driver
+  picked: null,         // client being delivered to
+  driver: { name: '', vehicle: '' },
+  CACHE: 'aqua_driver_cache', QUEUE: 'aqua_driver_queue',
+
+  async start() {
+    $('hDate').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    try { this.driver = JSON.parse(localStorage.getItem('aqua_driver') || '{}'); } catch (e) { this.driver = {}; }
+    if (!this.driver.name) { $('setupWrap').style.display = 'block'; return; }
+    $('hDriver').textContent = this.driver.name;
+    $('hVehicle').textContent = this.driver.vehicle || '—';
+    $('appWrap').style.display = 'block';
+    this.setupSearch();
+    // keep trying to sync whenever signal returns
+    window.addEventListener('online', () => { this.flush(); });
+    window.addEventListener('offline', () => { this.updatePending(); });
+    setInterval(() => { if (navigator.onLine && this.queue.length) this.flush(); }, 20000);
+    await this.load();
+  },
+
+  setStatus(ok, msg) {
+    $('dot').style.background = ok ? '#2ee6a0' : '#ff8a7d';
+    $('conn').textContent = msg || (ok ? 'Online' : 'Offline');
+  },
+
+  /* ---- offline cache + retry queue (driver phone only, never touches your data) ---- */
+  saveCache() { try { localStorage.setItem(this.CACHE, JSON.stringify({ clients: this.clients, routes: this.routes, payments: this.payments })); } catch (e) {} },
+  loadCache() { try { const c = JSON.parse(localStorage.getItem(this.CACHE) || 'null'); if (c) { this.clients = c.clients || []; this.routes = c.routes || []; this.payments = c.payments || []; return true; } } catch (e) {} return false; },
+  loadQueue() { try { this.queue = JSON.parse(localStorage.getItem(this.QUEUE) || '[]'); } catch (e) { this.queue = []; } },
+  saveQueue() { try { localStorage.setItem(this.QUEUE, JSON.stringify(this.queue)); } catch (e) {} },
+  enqueue(table, record) { this.queue.push({ table, id: record.id, data: record }); this.saveQueue(); this.updatePending(); },
+  async pushOrQueue(table, record) {
+    try {
+      const { error } = await sb.from(table).upsert([{ id: record.id, data: record, updated_at: new Date().toISOString() }]);
+      if (error) throw error;
+      return true;
+    } catch (e) { this.enqueue(table, record); return false; }
+  },
+  async flush() {
+    if (!this.queue.length) { this.updatePending(); return; }
+    const remaining = [];
+    for (const op of this.queue) {
+      try {
+        const { error } = await sb.from(op.table).upsert([{ id: op.id, data: op.data, updated_at: new Date().toISOString() }]);
+        if (error) throw error;
+      } catch (e) { remaining.push(op); }
+    }
+    const synced = this.queue.length - remaining.length;
+    this.queue = remaining; this.saveQueue(); this.updatePending();
+    if (synced > 0 && !remaining.length) toast('✓ ' + synced + ' synced to office');
+  },
+  updatePending() {
+    const n = this.queue.length;
+    if (n > 0) this.setStatus(navigator.onLine, n + ' waiting to sync');
+    else this.setStatus(navigator.onLine, navigator.onLine ? 'Online' : 'Offline');
+  },
+
+  async load() {
+    this.loadQueue();
+    this.setStatus(navigator.onLine, 'Loading…');
+    let online = false;
+    try {
+      const [c, r, p] = await Promise.all([
+        sb.from('clients').select('id,data'),
+        sb.from('routes').select('id,data'),
+        sb.from('payments').select('id,data')
+      ]);
+      if (c.error) throw c.error;
+      this.clients = (c.data || []).map(x => x.data).filter(Boolean);
+      this.routes = (r.data || []).map(x => x.data).filter(Boolean);
+      this.payments = (p.data || []).map(x => x.data).filter(Boolean);
+      this.saveCache();
+      online = true;
+      // pick up the driver PIN the admin set (for next unlock)
+      try {
+        const m = await sb.from('meta').select('id,data').eq('id', 'security');
+        const sec = m.data && m.data[0] && m.data[0].data;
+        if (sec && sec.driverPin) localStorage.setItem('aqua_driver_pin', sec.driverPin);
+      } catch (e) {}
+    } catch (e) {
+      console.error(e);
+      this.loadCache();   // no signal — use last saved data so driver can keep working
+    }
+    // find or make today's route for this driver (works online or offline)
+    const id = 'DRV-' + today() + '-' + slug(this.driver.name);
+    this.route = this.routes.find(x => x.id === id) || {
+      id, date: today(), driver: this.driver.name, vehicle: this.driver.vehicle || '',
+      fuel: 0, food: 0, other: 0, otherNote: '', botOut: 0, botRet: 0, botDmg: 0, rows: [], savedAt: new Date().toISOString()
+    };
+    if (!this.routes.some(x => x.id === id)) this.routes.push(this.route);
+    if (online) await this.flush();   // push anything that was waiting from offline
+    this.updatePending();
+    this.renderToday();
+  },
+  reload() { this.load(); },
+
+  /* ---- balance for a client (only shown for Daily) ---- */
+  balanceOf(id) {
+    const c = this.clients.find(x => x.id === id); if (!c) return 0;
+    let bal = num(c.opening);
+    this.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id) bal += num(row.balance); }));
+    this.payments.forEach(p => { if (p.clientId === id) bal -= num(p.amount); });
+    return Math.round(bal);
+  },
+
+  /* ---- search / autocomplete ---- */
+  setupSearch() {
+    const input = $('search'), list = $('ac');
+    const close = () => { list.classList.remove('show'); list.innerHTML = ''; };
+    const render = () => {
+      const q = input.value.trim().toLowerCase();
+      const items = this.clients
+        .filter(c => !q || c.name.toLowerCase().includes(q) || (c.zone || '').toLowerCase().includes(q))
+        .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 10);
+      let html = items.map(c => {
+        const daily = c.type !== 'Monthly';
+        const bal = daily ? this.balanceOf(c.id) : 0;
+        const tag = daily
+          ? (bal > 0 ? '<span class="bdg due">' + pkr(bal) + ' due</span>' : '<span class="bdg clear">paid up</span>')
+          : '<span class="bdg monthly">monthly</span>';
+        return '<div class="ac-item" data-id="' + c.id + '"><div><div class="nm">' + esc(c.name) + '</div><div class="meta">' + esc(c.zone || 'No area') + ' · ' + pkr(c.rate) + '/bottle</div></div>' + tag + '</div>';
+      }).join('');
+      if (q && !items.some(c => c.name.toLowerCase() === q)) {
+        html += '<div class="ac-item ac-add" data-new="1">＋ Add new customer "' + esc(input.value.trim()) + '"</div>';
+      }
+      if (!html) html = '<div class="ac-item mini">No customers found</div>';
+      list.innerHTML = html;
+      list.classList.add('show');
+      list.querySelectorAll('.ac-item').forEach(el => el.onclick = () => {
+        if (el.dataset.new) { this.openNew(input.value.trim()); close(); }
+        else if (el.dataset.id) { const c = this.clients.find(x => x.id === el.dataset.id); close(); input.value = ''; this.openDeliver(c); }
+      });
+    };
+    input.addEventListener('input', render);
+    input.addEventListener('focus', render);
+    document.addEventListener('click', e => { if (!input.contains(e.target) && !list.contains(e.target)) close(); });
+  },
+
+  /* ---- delivery sheet ---- */
+  openDeliver(c) {
+    if (!c) return;
+    this.picked = c;
+    const daily = c.type !== 'Monthly';
+    $('ds-name').textContent = c.name;
+    $('ds-info').innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">' +
+      '<span class="bdg ' + (daily ? 'daily' : 'monthly') + '">' + (daily ? 'Daily / cash' : 'Monthly') + '</span>' +
+      '<span class="mini">' + esc(c.zone || '') + '</span></div>' +
+      (c.address ? '<div class="mini" style="margin-top:6px">📍 ' + esc(c.address) + '</div>' : '');
+    // previous balance — only for daily clients
+    const dueWrap = $('ds-due'), collectWrap = $('ds-collect');
+    if (daily) {
+      const bal = this.balanceOf(c.id);
+      if (bal > 0) {
+        dueWrap.innerHTML = '<div class="due-strip"><div class="mini">Previous balance to collect</div><div class="big num">' + pkr(bal) + '</div></div>';
+        collectWrap.style.display = 'block'; $('ds-old').value = 0; $('ds-old').max = bal;
+      } else { dueWrap.innerHTML = ''; collectWrap.style.display = 'none'; $('ds-old').value = 0; }
+    } else {
+      dueWrap.innerHTML = '<div class="infobox mini">Monthly customer — billed by the office. No cash needed here.</div>';
+      collectWrap.style.display = 'none'; $('ds-old').value = 0;
+    }
+    $('ds-qty').value = 1;
+    $('ds-rate').value = c.rate;
+    $('ds-cash').value = '';
+    this.recalc();
+    $('deliverSheet').classList.add('show');
+  },
+  closeDeliver() { $('deliverSheet').classList.remove('show'); this.picked = null; },
+  bump(d) { $('ds-qty').value = Math.max(0, num($('ds-qty').value) + d); this.recalc(); },
+  recalc() {
+    const c = this.picked; if (!c) return;
+    const total = num($('ds-qty').value) * num($('ds-rate').value);
+    $('ds-total').value = pkr(total);
+    if (c.type !== 'Monthly') { /* keep cash as the driver typed it, default handled on open */ }
+    const bal = total - num($('ds-cash').value);
+    $('ds-bal').textContent = pkr(bal);
+  },
+  async addDelivery() {
+    const c = this.picked; if (!c) return;
+    const qty = num($('ds-qty').value), rate = num($('ds-rate').value);
+    if (qty <= 0) { toast('Quantity must be more than 0', true); return; }
+    const total = qty * rate, cash = num($('ds-cash').value);
+    const oldCollect = ($('ds-collect').style.display !== 'none') ? num($('ds-old').value) : 0;
+
+    this.route.rows.push({ clientId: c.id, name: c.name, zone: c.zone || '', type: c.type, qty, rate, total, received: cash, balance: total - cash });
+    this.route.savedAt = new Date().toISOString();
+    this.route.driver = this.driver.name; this.route.vehicle = this.driver.vehicle || '';
+    if (!this.routes.some(x => x.id === this.route.id)) this.routes.push(this.route);
+
+    await this.pushOrQueue('routes', this.route);
+    if (oldCollect > 0) {
+      const pay = { id: 'P' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), clientId: c.id, amount: oldCollect, date: today(), note: 'Driver collection (' + this.driver.name + ')' };
+      this.payments.push(pay);
+      await this.pushOrQueue('payments', pay);
+    }
+    this.saveCache();
+    toast('✓ Saved' + (oldCollect > 0 ? ' + ' + pkr(oldCollect) + ' collected' : '') + (navigator.onLine ? '' : ' (offline — will sync)'));
+    this.closeDeliver();
+    this.renderToday();
+  },
+
+  /* ---- new customer ---- */
+  openNew(name) { $('nc-name').value = name || ''; $('nc-rate').value = 120; $('nc-type').value = 'Daily'; $('nc-zone').value = ''; $('nc-addr').value = ''; $('newSheet').classList.add('show'); },
+  closeNew() { $('newSheet').classList.remove('show'); },
+  async saveNew() {
+    const name = $('nc-name').value.trim();
+    if (!name) { toast('Enter a name', true); return; }
+    if (this.clients.some(x => (x.name || '').trim().toLowerCase() === name.toLowerCase())) {
+      if (!confirm('A customer named "' + name + '" already exists. Add anyway?')) return;
+    }
+    const c = {
+      id: 'C' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), createdAt: today(), name,
+      type: $('nc-type').value, rate: num($('nc-rate').value),
+      zone: $('nc-zone').value.trim(), address: $('nc-addr').value.trim(),
+      phone: '', size: '19 L', bottlesHeld: 0, security: 0, opening: 0
+    };
+    this.clients.push(c);
+    this.saveCache();
+    await this.pushOrQueue('clients', c);
+    this.closeNew();
+    toast(name + ' added' + (navigator.onLine ? '' : ' (offline — will sync)'));
+    this.openDeliver(c);
+  },
+
+  /* ---- today's list + cash in hand ---- */
+  renderToday() {
+    const rows = (this.route && this.route.rows) || [];
+    const bottleCash = rows.reduce((s, r) => s + num(r.received), 0);
+    const collected = this.payments
+      .filter(p => p.date === today() && /Driver collection/.test(p.note || ''))
+      .reduce((s, p) => s + num(p.amount), 0);
+    const bottles = rows.reduce((s, r) => s + num(r.qty), 0);
+    $('cashHand').textContent = pkr(bottleCash + collected);
+    $('stopCount').textContent = rows.length;
+    $('bottleCount').textContent = bottles;
+    const list = $('todayList');
+    if (!rows.length) { list.innerHTML = '<div class="empty">No deliveries logged yet today.</div>'; return; }
+    list.innerHTML = rows.slice().reverse().map(r =>
+      '<div class="deliv"><div><div class="nm">' + esc(r.name) + '</div><div class="sub">' + r.qty + ' bottle' + (r.qty > 1 ? 's' : '') + ' · ' + pkr(r.total) +
+      (num(r.balance) > 0 ? ' · <span style="color:var(--red)">' + pkr(r.balance) + ' on credit</span>' : '') + '</div></div>' +
+      '<div class="amt">' + pkr(r.received) + '</div></div>'
+    ).join('');
+  },
+
+  /* ---- setup ---- */
+  openSetup() { $('setName').value = this.driver.name || ''; $('setVehicle').value = this.driver.vehicle || ''; $('appWrap').style.display = 'none'; $('setupWrap').style.display = 'block'; },
+  saveSetup() {
+    const name = $('setName').value.trim();
+    if (!name) { toast('Enter your name', true); return; }
+    this.driver = { name, vehicle: $('setVehicle').value.trim() };
+    localStorage.setItem('aqua_driver', JSON.stringify(this.driver));
+    $('setupWrap').style.display = 'none';
+    $('hDriver').textContent = this.driver.name;
+    $('hVehicle').textContent = this.driver.vehicle || '—';
+    $('appWrap').style.display = 'block';
+    if (!this._searchReady) { this.setupSearch(); this._searchReady = true; }
+    this.load();
+  }
+};
+
+const DriverLock = {
+  pin() { return localStorage.getItem('aqua_driver_pin') || '0000'; },
+  boot() {
+    if (sessionStorage.getItem('aqua_driver_ok') === '1') { this.hide(); App.start(); return; }
+    const inp = $('lockPin');
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') this.check(); });
+    setTimeout(() => inp.focus(), 150);
+  },
+  check() {
+    const v = ($('lockPin').value || '').trim();
+    if (v && v === this.pin()) { sessionStorage.setItem('aqua_driver_ok', '1'); this.hide(); App.start(); }
+    else { $('lockErr').textContent = 'Wrong PIN — try again'; $('lockPin').value = ''; $('lockPin').focus(); }
+  },
+  hide() { $('lockScreen').classList.add('hidden'); }
+};
+
+document.addEventListener('DOMContentLoaded', () => DriverLock.boot());
+
+</script>
+</body>
+</html>
