@@ -214,6 +214,7 @@ tbody tr:hover{background:var(--surface-2)}
     <button class="tab" data-view="ledger"><span class="ic">📒</span>Ledger</button>
     <button class="tab" data-view="invoices"><span class="ic">🧾</span>Invoices</button>
     <button class="tab" data-view="collections"><span class="ic">💰</span>Collections</button>
+    <button class="tab" data-view="daybook"><span class="ic">📖</span>Day Book</button>
     <button class="tab" data-view="expenses"><span class="ic">💸</span>Expenses</button>
     <button class="tab" data-view="filling"><span class="ic">🚰</span>Filling</button>
     <button class="tab" data-view="inventory"><span class="ic">📦</span>Inventory</button>
@@ -624,7 +625,33 @@ tbody tr:hover{background:var(--surface-2)}
   </div>
 </section>
 
-<!-- ============ DATA ============ -->
+<!-- ============ DAY BOOK ============ -->
+<section id="daybook" class="view">
+  <div class="page-h"><h2>Day Book</h2><p>Har din kis-kis ne kitna diya — din ke aakhir mein cash milane ke liye</p></div>
+  <div class="card">
+    <div class="card-h">
+      <h3><span class="ic">📖</span> Collections on <span id="dbDateLbl"></span></h3>
+      <div class="row-actions">
+        <button class="btn ghost sm" style="flex:none" onclick="DayBook.step(-1)">‹ Prev</button>
+        <input type="date" id="dbDate" class="inp" style="width:auto" onchange="DayBook.render()">
+        <button class="btn ghost sm" style="flex:none" onclick="DayBook.step(1)">Next ›</button>
+      </div>
+    </div>
+    <div class="stats" style="grid-template-columns:repeat(3,1fr);margin:12px 0">
+      <div class="stat green"><div class="lbl">Total collected</div><div class="val num" id="dbTotal">PKR 0</div></div>
+      <div class="stat"><div class="lbl">💵 Cash</div><div class="val num" id="dbCash">PKR 0</div></div>
+      <div class="stat blue"><div class="lbl">🏦 Online / Bank</div><div class="val num" id="dbOnline">PKR 0</div></div>
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Client</th><th class="hide-sm">Area</th><th>Method</th><th class="hide-sm">Note</th><th class="r-money">Amount</th><th></th></tr></thead>
+      <tbody id="dbTable"></tbody>
+    </table></div>
+    <p class="mini" id="dbCount" style="margin-top:8px"></p>
+    <p class="mini">💡 Tip: din ke aakhir mein <b>💵 Cash</b> waala total apni jeb ke cash se milao. Barabar hona chahiye.</p>
+  </div>
+</section>
+
+<!-- ============ INVENTORY ============ -->
 <section id="inventory" class="view">
   <div class="page-h"><h2>Inventory &amp; Stock Control</h2><p>Caps, bottle pool &amp; stock — auto-updated from routes &amp; filling</p></div>
 
@@ -801,6 +828,11 @@ tbody tr:hover{background:var(--surface-2)}
     <div class="modal-b">
       <input type="hidden" id="payClientId">
       <div id="payInfo" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px"></div>
+      <div id="payItemsWrap" style="display:none;margin-bottom:14px">
+        <label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px">Ye payment kin deliveries ke liye hai? <span style="font-weight:400;color:var(--ink-soft)">(optional — tick karo)</span></label>
+        <div id="payItems" style="border:1px solid var(--line);border-radius:10px;max-height:190px;overflow:auto"></div>
+        <div class="mini" style="margin-top:6px">Deliveries tick karoge to amount khud set ho jayega aur sirf wahi clear hongi. Kuch na karo to sabse purana pehle clear hoga.</div>
+      </div>
       <div class="grid g2">
         <div class="field"><label>Amount received (PKR)</label>
           <input type="number" id="payAmount" class="inp num" oninput="Ledger.payPreview()">
@@ -1065,35 +1097,42 @@ function monthlyBook(id) {
   return { receivables: recv, invoices: invs, unbilled, overdue, accruing, advance, overdueSince };
 }
 
-// How much a client still owes FROM a specific calendar month (m = 'YYYY-MM'), + bottles on those unpaid charges.
-// Payments clear the OLDEST charges first, so a later payment that cleared an earlier month makes that month drop off.
-function monthOwe(id, m) {
-  const c = getClient(id); if (!c) return { owed: 0, bottles: 0, since: null };
+// Per-delivery settlement. Payments TAGGED to specific deliveries (p.alloc) settle those first;
+// whatever is left over clears the remaining charges OLDEST-first. Returns each charge with paid/unpaid.
+function chargeSettlement(id) {
+  const c = getClient(id); if (!c) return [];
   const charges = [];
-  if (num(c.opening) > 0) charges.push({ date: c.createdAt || '2000-01-01', amt: num(c.opening), qty: 0 });
-  state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id) charges.push({ date: r.date, amt: num(row.total) - num(row.received), qty: num(row.qty) }); }));
-  state.fillings.forEach(f => { if (f.clientId === id) charges.push({ date: f.date, amt: fillTotal(f) - fillRecv(f), qty: num(f.qty) }); });
+  if (num(c.opening) > 0) charges.push({ key: 'opening', date: c.createdAt || '2000-01-01', owed: num(c.opening), qty: 0, kind: 'open' });
+  state.routes.forEach(r => (r.rows || []).forEach(row => {
+    if (row.clientId === id) { const owed = num(row.total) - num(row.received); charges.push({ key: row.rid ? ('r:' + row.rid) : null, date: r.date, owed, qty: num(row.qty), driver: r.driver || '', kind: 'deliver' }); }
+  }));
+  state.fillings.forEach(f => { if (f.clientId === id) { const owed = fillTotal(f) - fillRecv(f); charges.push({ key: 'f:' + f.id, date: f.date, owed, qty: num(f.qty), kind: 'fill' }); } });
   charges.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  let pool = state.payments.filter(p => p.clientId === id).reduce((s, p) => s + num(p.amount), 0);
-  let owed = 0, bottles = 0, since = null;
-  charges.forEach(ch => {
-    let rem = ch.amt;
-    if (pool > 0 && rem > 0) { const take = Math.min(pool, rem); pool -= take; rem -= take; }
-    if (rem > 0.5 && ch.date && ch.date.slice(0, 7) === m) { owed += rem; bottles += ch.qty; if (!since) since = ch.date; }
+  // gather tagged (explicit) allocations + leftover FIFO pool
+  const explicit = {}; let pool = 0;
+  state.payments.filter(p => p.clientId === id).forEach(p => {
+    let allocSum = 0;
+    (p.alloc || []).forEach(a => { if (a.key) { explicit[a.key] = (explicit[a.key] || 0) + num(a.amount); allocSum += num(a.amount); } });
+    pool += num(p.amount) - allocSum;
   });
+  // apply tagged payments to their exact charges first
+  charges.forEach(ch => { ch.paid = 0; if (ch.key && explicit[ch.key] > 0) { const t = Math.min(ch.owed, explicit[ch.key]); ch.paid += t; explicit[ch.key] -= t; } });
+  Object.keys(explicit).forEach(k => { if (explicit[k] > 0) pool += explicit[k]; }); // over-tagged spills back to pool
+  // remaining pool clears the rest, oldest first
+  charges.forEach(ch => { let rem = ch.owed - ch.paid; if (pool > 0 && rem > 0) { const t = Math.min(pool, rem); pool -= t; ch.paid += t; } ch.unpaid = Math.round(ch.owed - ch.paid); ch.status = ch.owed <= 0 ? 'none' : (ch.unpaid <= 0 ? 'paid' : (ch.paid > 0 ? 'partial' : 'unpaid')); });
+  return charges;
+}
+
+// How much a client still owes FROM a specific calendar month (m='YYYY-MM'), + bottles on those unpaid charges.
+function monthOwe(id, m) {
+  let owed = 0, bottles = 0, since = null;
+  chargeSettlement(id).forEach(ch => { if (ch.unpaid > 0.5 && ch.date && ch.date.slice(0, 7) === m) { owed += ch.unpaid; bottles += ch.qty; if (!since) since = ch.date; } });
   return { owed: Math.round(owed), bottles, since };
 }
-// Total still-unpaid amount + bottles for a client across all time (payments clear oldest first).
+// Total still-unpaid amount + bottles across all time.
 function unpaidTotals(id) {
-  const c = getClient(id); if (!c) return { owed: 0, bottles: 0 };
-  const charges = [];
-  if (num(c.opening) > 0) charges.push({ amt: num(c.opening), qty: 0, date: c.createdAt || '2000-01-01' });
-  state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id) charges.push({ amt: num(row.total) - num(row.received), qty: num(row.qty), date: r.date }); }));
-  state.fillings.forEach(f => { if (f.clientId === id) charges.push({ amt: fillTotal(f) - fillRecv(f), qty: num(f.qty), date: f.date }); });
-  charges.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  let pool = state.payments.filter(p => p.clientId === id).reduce((s, p) => s + num(p.amount), 0);
   let owed = 0, bottles = 0;
-  charges.forEach(ch => { let rem = ch.amt; if (pool > 0 && rem > 0) { const t = Math.min(pool, rem); pool -= t; rem -= t; } if (rem > 0.5) { owed += rem; bottles += ch.qty; } });
+  chargeSettlement(id).forEach(ch => { if (ch.unpaid > 0.5) { owed += ch.unpaid; bottles += ch.qty; } });
   return { owed: Math.round(owed), bottles };
 }
 
@@ -1129,7 +1168,7 @@ function doSwitch(name) {
   const r = { dashboard: () => Dashboard.render(), clients: () => Clients.renderList(),
     invoices: () => Invoices.renderList(), expenses: () => Expenses.render(),
     filling: () => Filling.render(), inventory: () => Inventory.render(), route: () => RouteSheet.renderArchive(),
-    checks: () => AccountsCheck.render(), collections: () => Collections.render(), ledger: () => Ledger.renderList() };
+    checks: () => AccountsCheck.render(), collections: () => Collections.render(), ledger: () => Ledger.renderList(), daybook: () => DayBook.render() };
   if (r[name]) r[name]();
 }
 
@@ -1910,12 +1949,17 @@ const Ledger = {
     $('ledgerSearch').value = c.name;
 
     // build ONE chronological statement with a running balance
+    let bf = false;
+    if (!isMonthly(c)) state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id && !row.rid) { row.rid = uid(); bf = true; } }));
+    if (bf) save();
+    const settle = {};
+    if (!isMonthly(c)) chargeSettlement(id).forEach(ch => { if (ch.key) settle[ch.key] = ch; });
     const tx = [];
     if (num(c.opening) !== 0) tx.push({ date: c.createdAt || '2000-01-01', kind: 'open', desc: 'Opening balance', charge: num(c.opening), paid: 0 });
     state.routes.forEach(r => (r.rows || []).forEach(row => {
-      if (row.clientId === id) tx.push({ date: r.date, kind: 'deliver', desc: row.qty + ' bottle(s) delivered' + (r.driver ? ' · ' + r.driver : ''), charge: num(row.total), paid: num(row.received) });
+      if (row.clientId === id) tx.push({ date: r.date, kind: 'deliver', key: row.rid ? 'r:' + row.rid : null, desc: row.qty + ' bottle(s) delivered' + (r.driver ? ' · ' + r.driver : ''), charge: num(row.total), paid: num(row.received) });
     }));
-    state.fillings.forEach(f => { if (f.clientId === id) tx.push({ date: f.date, kind: 'fill', desc: f.qty + ' bottle(s) filled at plant', charge: fillTotal(f), paid: fillRecv(f) }); });
+    state.fillings.forEach(f => { if (f.clientId === id) tx.push({ date: f.date, kind: 'fill', key: 'f:' + f.id, desc: f.qty + ' bottle(s) filled at plant', charge: fillTotal(f), paid: fillRecv(f) }); });
     state.payments.forEach(p => { if (p.clientId === id) tx.push({ date: p.date, kind: 'pay', desc: 'Payment received' + (p.method ? ' (' + p.method + ')' : '') + (p.note ? ' · ' + p.note : ''), charge: 0, paid: num(p.amount), payId: p.id }); });
     tx.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.kind === 'pay' ? 1 : -1));
     let run = 0; tx.forEach(t => { run += t.charge - t.paid; t.run = run; });
@@ -1949,7 +1993,8 @@ const Ledger = {
       ? '<div class="tw"><table><thead><tr><th>Date</th><th>Detail</th><th class="r-money">Charge</th><th class="r-money">Paid</th><th class="r-money">Balance</th><th></th></tr></thead><tbody>' +
         tx.slice().reverse().map(t =>
           '<tr><td>' + fmtDate(t.date) + '</td>' +
-          '<td>' + (t.kind === 'pay' ? '<span class="bdg paid">✓ payment</span> ' : '') + esc(t.desc) + '</td>' +
+          '<td>' + (t.kind === 'pay' ? '<span class="bdg paid">✓ payment</span> ' : '') + esc(t.desc) +
+            (t.key && settle[t.key] ? (settle[t.key].status === 'paid' ? ' <span class="bdg paid" style="font-size:10px">✓ paid</span>' : settle[t.key].status === 'partial' ? ' <span class="bdg partial" style="font-size:10px">part-paid</span>' : ' <span class="bdg unpaid" style="font-size:10px">pending</span>') : '') + '</td>' +
           '<td class="r-money num">' + (t.charge ? pkr(t.charge) : '—') + '</td>' +
           '<td class="r-money num money-pos">' + (t.paid ? pkr(t.paid) : '—') + '</td>' +
           '<td class="r-money num ' + (t.run > 0 ? 'money-bal' : 'money-pos') + '"><b>' + pkr(t.run) + '</b></td>' +
@@ -2011,14 +2056,42 @@ const Ledger = {
     $('payAmount').value = ''; $('payDate').value = today(); $('payNote').value = '';
     if ($('payMethod')) $('payMethod').value = 'Cash';
     if ($('payFullBtn')) $('payFullBtn').textContent = this._payBal > 0 ? ('Pay full balance (' + pkr(this._payBal) + ')') : 'Pay full balance';
+    this.buildPayItems(id);
     this.payPreview();
     $('payModal').classList.add('show');
     setTimeout(() => $('payAmount').focus(), 50);
   },
-  payFull() { $('payAmount').value = Math.max(0, this._payBal || 0); this.payPreview(); },
+  // list the client's unpaid deliveries so a payment can be tagged to specific ones
+  buildPayItems(id) {
+    const wrap = $('payItemsWrap'), box = $('payItems'); if (!wrap || !box) return;
+    // make sure every delivery has a stable id so it can be tagged
+    let backfilled = false;
+    state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id && !row.rid) { row.rid = uid(); backfilled = true; } }));
+    if (backfilled) save();
+    const unpaid = chargeSettlement(id).filter(ch => ch.unpaid > 0.5 && ch.key && ch.kind !== 'open');
+    this._payItems = unpaid;
+    if (unpaid.length < 2) { wrap.style.display = 'none'; box.innerHTML = ''; return; }
+    wrap.style.display = '';
+    box.innerHTML = unpaid.map((ch, i) =>
+      '<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer">' +
+      '<input type="checkbox" data-i="' + i + '" onchange="Ledger.payItemsChanged()" style="width:17px;height:17px;flex:none">' +
+      '<span style="flex:1"><b>' + fmtDate(ch.date) + '</b> <span class="mini">· ' + ch.qty + ' bottle(s)' + (ch.driver ? ' · ' + esc(ch.driver) : '') + '</span></span>' +
+      '<span class="money-bal" style="font-weight:700">' + pkr(ch.unpaid) + '</span></label>'
+    ).join('');
+  },
+  payItemsChanged() {
+    const boxes = document.querySelectorAll('#payItems input[type=checkbox]');
+    let sum = 0, any = false;
+    boxes.forEach(b => { if (b.checked) { any = true; sum += num((this._payItems[+b.dataset.i] || {}).unpaid); } });
+    if (any) { $('payAmount').value = Math.round(sum); }
+    this.payPreview();
+  },
+  payFull() { document.querySelectorAll('#payItems input[type=checkbox]').forEach(b => b.checked = false); $('payAmount').value = Math.max(0, this._payBal || 0); this.payPreview(); },
   payPreview() {
     const el = $('payPreview'); if (!el) return;
     const amt = num($('payAmount').value), bal = this._payBal || 0;
+    const ticked = document.querySelectorAll('#payItems input[type=checkbox]:checked').length;
+    if (ticked) { el.innerHTML = '<b style="color:var(--green)">✓ Clears ' + ticked + ' selected delivery(s)</b> — baaki jyun ka tyun rahega.'; return; }
     if (!amt) { el.innerHTML = ''; return; }
     const left = Math.round(bal - amt);
     if (left > 0) el.innerHTML = 'After this: <b class="money-bal">' + pkr(left) + '</b> still pending (oldest days clear first).';
@@ -2032,12 +2105,20 @@ const Ledger = {
     const amt = num($('payAmount').value);
     if (amt <= 0) { toast('Enter an amount', 'err'); return; }
     const bal = clientBalance(id);
-    state.payments.push({ id: uid(), clientId: id, amount: amt, date: $('payDate').value || today(), method: ($('payMethod') ? $('payMethod').value : 'Cash'), note: $('payNote').value.trim() });
+    // tagged deliveries (if any ticked)
+    const alloc = [];
+    document.querySelectorAll('#payItems input[type=checkbox]').forEach(b => {
+      if (b.checked) { const ch = (this._payItems || [])[+b.dataset.i]; if (ch && ch.key) alloc.push({ key: ch.key, amount: ch.unpaid }); }
+    });
+    const pay = { id: uid(), clientId: id, amount: amt, date: $('payDate').value || today(), method: ($('payMethod') ? $('payMethod').value : 'Cash'), note: $('payNote').value.trim() };
+    if (alloc.length) pay.alloc = alloc;
+    state.payments.push(pay);
     save(); this.closePay(); this.open(id);
     try { Dashboard.render(); } catch (e) {}
     try { Clients.renderList(); } catch (e) {}
     try { Invoices.renderList(); } catch (e) {}
     if (amt > bal && bal >= 0) toast('Payment saved — ' + pkr(amt - bal) + ' is now advance/credit', 'warn');
+    else if (alloc.length) toast('Payment recorded — ' + alloc.length + ' delivery(s) marked paid');
     else toast('Payment recorded — balance updated');
     if (Invoices._reopen) { const rid = Invoices._reopen; Invoices._reopen = null; setTimeout(() => Invoices.show(rid), 140); }
   },
@@ -2829,6 +2910,31 @@ const Reminders = {
 };
 
 /* ====================== COLLECTIONS (aging + WhatsApp + cash in hand) ====================== */
+const DayBook = {
+  render() {
+    const d = $('dbDate'); if (!d.value) d.value = today();
+    const day = d.value;
+    $('dbDateLbl').textContent = fmtDate(day);
+    const rows = state.payments.filter(p => p.date === day)
+      .map(p => ({ p, c: getClient(p.clientId) }))
+      .sort((a, b) => num(b.p.amount) - num(a.p.amount));
+    let total = 0, cash = 0, online = 0;
+    rows.forEach(x => { const a = num(x.p.amount); total += a; if ((x.p.method || 'Cash').toLowerCase().includes('cash')) cash += a; else online += a; });
+    $('dbTotal').textContent = pkr(total); $('dbCash').textContent = pkr(cash); $('dbOnline').textContent = pkr(online);
+    const body = $('dbTable');
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty"><span class="ic">📖</span>Is din koi payment record nahi hui</td></tr>'; $('dbCount').textContent = ''; return; }
+    body.innerHTML = rows.map(x => {
+      const name = x.c ? x.c.name : '— (deleted client)';
+      const method = x.p.method || 'Cash';
+      const mb = method.toLowerCase().includes('cash') ? '<span class="bdg paid">💵 ' + esc(method) + '</span>' : '<span class="bdg monthly">🏦 ' + esc(method) + '</span>';
+      return '<tr><td><b>' + esc(name) + '</b></td><td class="hide-sm mini">' + esc((x.c && x.c.zone) || '—') + '</td><td>' + mb + '</td><td class="hide-sm mini">' + esc(x.p.note || '—') + '</td><td class="r-money num money-pos"><b>' + pkr(x.p.amount) + '</b></td><td>' + (x.c ? '<button class="iconbtn" title="Open ledger" onclick="Ledger.open(\'' + x.c.id + '\')">📒</button>' : '') + '</td></tr>';
+    }).join('');
+    $('dbCount').textContent = rows.length + ' payment(s) collected on this day.';
+  },
+  step(n) {
+    const d = $('dbDate'); const dt = new Date(d.value || today()); dt.setDate(dt.getDate() + n); d.value = localDate(dt); this.render();
+  }
+};
 const Collections = {
   init() { if ($('cbDate')) $('cbDate').value = today(); },
   render() { this.renderAging(); this.renderCash(); },
