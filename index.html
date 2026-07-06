@@ -197,7 +197,7 @@ tbody tr:hover{background:var(--surface-2)}
   <div class="top-in">
     <div class="brand">
       <div class="logo">💧</div>
-      <div><b>AQUA PACK</b><small>Water ERP · v9</small></div>
+      <div><b>AQUA PACK</b><small>Water ERP · v10</small></div>
     </div>
     <div class="top-right">
       <span class="savechip" id="cloudChip" onclick="switchView('data')" style="cursor:pointer"><span class="dot" id="cloudDot" style="background:var(--ink-faint)"></span><span id="cloudState">Local only</span></span>
@@ -601,11 +601,23 @@ tbody tr:hover{background:var(--surface-2)}
 
   <div class="card">
     <div class="card-h"><h3><span class="ic">📅</span> Receivables aging</h3><span class="pill">oldest first</span></div>
+    <div class="flexspace" style="margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div class="seg" id="agScope">
+        <button class="active" onclick="Collections.setMonth('all',this)">All months</button>
+        <button onclick="Collections.pickMonth(this)">By month</button>
+      </div>
+      <div id="agMonthWrap" style="display:none;align-items:center;gap:6px">
+        <button class="btn ghost sm" style="flex:none" onclick="Collections.stepMonth(-1)">‹</button>
+        <input type="month" id="agMonth" class="inp" style="width:auto" onchange="Collections.renderAging()">
+        <button class="btn ghost sm" style="flex:none" onclick="Collections.stepMonth(1)">›</button>
+      </div>
+    </div>
     <div class="tw"><table>
       <thead><tr><th>Customer</th><th class="hide-sm">Area</th><th class="r-money">Balance</th><th>Age</th><th></th></tr></thead>
       <tbody id="agTable"></tbody>
     </table></div>
-    <p class="mini" style="margin-top:8px">💬 <b>Remind</b> auto-writes a WhatsApp message with their balance. You copy it and paste it yourself — nothing is sent automatically. (Add a phone number on the customer if you want the "Open WhatsApp" shortcut.)</p>
+    <p class="mini" id="agScopeNote" style="margin-top:8px"></p>
+    <p class="mini" style="margin-top:4px">💬 <b>Remind</b> auto-writes a WhatsApp message with their balance. You copy it and paste it yourself — nothing is sent automatically.</p>
   </div>
 
   <div class="card">
@@ -1027,6 +1039,7 @@ function lastUnpaidDate(id) {
 
 /* ============ MONTHLY BILLING ENGINE (period buckets + oldest-first payment allocation) ============ */
 const MON_ABBR = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function monLabel(m) { try { return new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); } catch (e) { return m; } }
 function dim(y, m1) { return new Date(y, m1, 0).getDate(); } // m1 = 1-indexed month
 function billDayOf(c) { return Math.min(Math.max(num(c && c.billingDay) || 1, 1), 31); }
 function isMonthly(c) { return c && c.type === 'Monthly'; }
@@ -2946,19 +2959,44 @@ const DayBook = {
   }
 };
 const Collections = {
+  _month: 'all',
   init() { if ($('cbDate')) $('cbDate').value = today(); },
   render() { this.renderAging(); this.renderCash(); },
   ageDays(id) { const s = lastUnpaidDate(id); return s ? daysSince(s) : 0; },
+  setMonth(m, btn) {
+    this._month = m;
+    if (btn && btn.parentElement) [...btn.parentElement.children].forEach(b => b.classList.toggle('active', b === btn));
+    $('agMonthWrap').style.display = 'none';
+    this.renderAging();
+  },
+  pickMonth(btn) {
+    if (btn && btn.parentElement) [...btn.parentElement.children].forEach(b => b.classList.toggle('active', b === btn));
+    if (!$('agMonth').value) $('agMonth').value = thisMonth();
+    $('agMonthWrap').style.display = 'flex';
+    this._month = $('agMonth').value;
+    this.renderAging();
+  },
+  stepMonth(n) {
+    const cur = $('agMonth').value || thisMonth();
+    const [y, mo] = cur.split('-').map(Number);
+    const d = new Date(y, mo - 1 + n, 1);
+    $('agMonth').value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    this.renderAging();
+  },
   renderAging() {
+    const byMonth = $('agMonthWrap') && $('agMonthWrap').style.display !== 'none' && $('agMonth') && $('agMonth').value;
+    const m = byMonth ? $('agMonth').value : null;
     const rows = [];
     state.clients.forEach(c => {
-      const bal = owedNow(c.id);
-      if (bal > 0) {
-        // for monthly clients, show how much of the total is still unbilled (not on an invoice yet)
-        const unbilled = isMonthly(c) ? monthlyBook(c.id).accruing : 0;
-        rows.push({ c, bal, accruing: unbilled, days: this.ageDays(c.id), monthly: isMonthly(c) });
+      if (m) {
+        const mo = monthOwe(c.id, m);
+        if (mo.owed > 0) rows.push({ c, bal: mo.owed, accruing: 0, bottles: mo.bottles, days: mo.since ? daysSince(mo.since) : 0, monthly: isMonthly(c) });
+      } else {
+        const bal = owedNow(c.id);
+        if (bal > 0) { const unbilled = isMonthly(c) ? monthlyBook(c.id).accruing : 0; rows.push({ c, bal, accruing: unbilled, days: this.ageDays(c.id), monthly: isMonthly(c) }); }
       }
     });
+    if ($('agScopeNote')) $('agScopeNote').innerHTML = m ? ('Showing what each customer still owes <b>from ' + monLabel(m) + '</b> only.') : 'Showing each customer\u2019s <b>total</b> outstanding (all months).';
     rows.sort((a, b) => b.days - a.days);
     let t0 = 0, t8 = 0, t30 = 0;
     rows.forEach(x => { if (x.days <= 7) t0 += x.bal; else if (x.days <= 30) t8 += x.bal; else t30 += x.bal; });
