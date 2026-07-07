@@ -197,7 +197,7 @@ tbody tr:hover{background:var(--surface-2)}
   <div class="top-in">
     <div class="brand">
       <div class="logo">💧</div>
-      <div><b>AQUA PACK</b><small>Water ERP · v13</small></div>
+      <div><b>AQUA PACK</b><small>Water ERP · v14</small></div>
     </div>
     <div class="top-right">
       <span class="savechip" id="cloudChip" onclick="switchView('data')" style="cursor:pointer"><span class="dot" id="cloudDot" style="background:var(--ink-faint)"></span><span id="cloudState">Local only</span></span>
@@ -773,6 +773,15 @@ tbody tr:hover{background:var(--surface-2)}
     <div class="row-actions">
       <button class="btn pri" onclick="Lock.savePins()">Save PINs</button>
       <button class="btn ghost" onclick="Lock.lock()">🔒 Lock now</button>
+    </div>
+  </div>
+  <div class="card">
+  <div class="card">
+    <div class="card-h"><h3><span class="ic">📊</span> Export to Excel</h3></div>
+    <p class="mini" style="margin-bottom:14px">A ready-to-open spreadsheet for the owner / accountant — separate sheets for Clients, Outstanding, all Transactions, Invoices, Payments &amp; Expenses. (Needs internet the first time to load the Excel engine.)</p>
+    <div class="row-actions">
+      <button class="btn pri" onclick="DataTab.exportExcel()">📊 Download Excel (.xlsx)</button>
+      <button class="btn ghost" onclick="DataTab.exportCsvOutstanding()">📄 Outstanding (CSV)</button>
     </div>
   </div>
   <div class="card">
@@ -2743,6 +2752,69 @@ const Inventory = {
 
 /* ====================== DATA / BACKUP ====================== */
 const DataTab = {
+  _loadXLSX(cb) {
+    if (window.XLSX) return cb();
+    toast('Loading Excel engine…');
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => cb();
+    s.onerror = () => toast('Could not load Excel engine — check internet, or use CSV', 'err');
+    document.head.appendChild(s);
+  },
+  _fmtD(d) { return d ? fmtDate(d) : ''; },
+  exportExcel() {
+    this._loadXLSX(() => {
+      try {
+        const wb = XLSX.utils.book_new();
+        const cn = id => { const c = getClient(id); return c ? c.name : '(deleted)'; };
+
+        // 1) Clients
+        const clients = state.clients.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => {
+          const ut = unpaidTotals(c.id);
+          return { Name: c.name || '', Type: c.type || 'Daily', Area: c.zone || '', Phone: c.phone || '', 'Rate (PKR)': num(c.rate), 'Empty bottles held': num(c.bottlesHeld), 'Balance due (PKR)': owedNow(c.id), 'Unpaid bottles': ut.bottles, 'Security held (PKR)': num(c.security) };
+        });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(clients), 'Clients');
+
+        // 2) Outstanding
+        const out = state.clients.map(c => ({ c, bal: owedNow(c.id) })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal).map(x => ({ Customer: x.c.name || '', Area: x.c.zone || '', Phone: x.c.phone || '', 'Balance (PKR)': x.bal, 'Days overdue': Collections.ageDays(x.c.id), Type: x.c.type || 'Daily' }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out.length ? out : [{ Note: 'Everyone is clear' }]), 'Outstanding');
+
+        // 3) Transactions (deliveries, fillings, payments)
+        const tx = [];
+        state.routes.forEach(r => (r.rows || []).forEach(row => tx.push({ Date: this._fmtD(r.date), _s: r.date, Client: cn(row.clientId), Type: 'Delivery', Detail: (r.driver || ''), Bottles: num(row.qty), 'Charge (PKR)': num(row.total), 'Paid at delivery (PKR)': num(row.received), Method: '', Note: '' })));
+        state.fillings.forEach(f => tx.push({ Date: this._fmtD(f.date), _s: f.date, Client: cn(f.clientId), Type: 'Plant filling', Detail: '', Bottles: num(f.qty), 'Charge (PKR)': fillTotal(f), 'Paid at delivery (PKR)': fillRecv(f), Method: '', Note: '' }));
+        state.payments.forEach(p => tx.push({ Date: this._fmtD(p.date), _s: p.date, Client: cn(p.clientId), Type: 'Payment', Detail: '', Bottles: '', 'Charge (PKR)': '', 'Paid at delivery (PKR)': '', Method: p.method || 'Cash', Note: p.note || '', 'Payment (PKR)': num(p.amount) }));
+        tx.sort((a, b) => (b._s || '').localeCompare(a._s || '')).forEach(t => delete t._s);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tx.length ? tx : [{ Note: 'No transactions' }]), 'Transactions');
+
+        // 4) Invoices
+        const invs = state.invoices.slice().sort((a, b) => (b.issueDate || '').localeCompare(a.issueDate || '')).map(i => { const B = Invoices.invoiceBalance(i); return { 'Invoice #': i.number, Client: i.clientName || cn(i.clientId), From: this._fmtD(i.from), To: this._fmtD(i.to), Bottles: num(i.qty), 'Amount (PKR)': num(i.amount), 'Paid (PKR)': Math.round(B.payable + B.periodCash), 'Balance due (PKR)': Math.max(0, B.due), Status: B.due <= 0 ? 'Paid' : 'Unpaid' }; });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(invs.length ? invs : [{ Note: 'No invoices' }]), 'Invoices');
+
+        // 5) Payments only
+        const pays = state.payments.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(p => ({ Date: this._fmtD(p.date), Client: cn(p.clientId), 'Amount (PKR)': num(p.amount), Method: p.method || 'Cash', Note: p.note || '' }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pays.length ? pays : [{ Note: 'No payments' }]), 'Payments');
+
+        // 6) Expenses
+        const exp = (state.expenses || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(e => ({ Date: this._fmtD(e.date), Category: e.category || '', 'Amount (PKR)': num(e.amount), Details: e.details || '', Recurring: e.recurring === 'monthly' ? 'Monthly' : 'One-time' }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exp.length ? exp : [{ Note: 'No expenses' }]), 'Expenses');
+
+        XLSX.writeFile(wb, 'aquapack-export-' + today() + '.xlsx');
+        toast('Excel file downloaded ✓');
+      } catch (e) { console.error(e); toast('Export failed — try again', 'err'); }
+    });
+  },
+  exportCsvOutstanding() {
+    const rows = [['Customer', 'Area', 'Phone', 'Balance (PKR)', 'Days overdue', 'Type']];
+    state.clients.map(c => ({ c, bal: owedNow(c.id) })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal)
+      .forEach(x => rows.push([x.c.name || '', x.c.zone || '', x.c.phone || '', x.bal, Collections.ageDays(x.c.id), x.c.type || 'Daily']));
+    const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'aquapack-outstanding-' + today() + '.csv';
+    a.click();
+    toast('Outstanding CSV downloaded ✓');
+  },
   backup() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
