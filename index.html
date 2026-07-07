@@ -197,7 +197,7 @@ tbody tr:hover{background:var(--surface-2)}
   <div class="top-in">
     <div class="brand">
       <div class="logo">💧</div>
-      <div><b>AQUA PACK</b><small>Water ERP · v10</small></div>
+      <div><b>AQUA PACK</b><small>Water ERP · v12</small></div>
     </div>
     <div class="top-right">
       <span class="savechip" id="cloudChip" onclick="switchView('data')" style="cursor:pointer"><span class="dot" id="cloudDot" style="background:var(--ink-faint)"></span><span id="cloudState">Local only</span></span>
@@ -468,10 +468,32 @@ tbody tr:hover{background:var(--surface-2)}
       <h3><span class="ic">📑</span> Saved invoices</h3>
       <input type="text" id="invSearch" class="inp" style="width:auto" placeholder="Search…" oninput="Invoices.renderList()">
     </div>
+    <div class="flexspace" style="margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div class="seg" id="invStatusSeg">
+        <button class="active" onclick="Invoices.setStatus('all',this)">All</button>
+        <button onclick="Invoices.setStatus('unpaid',this)">Unpaid</button>
+        <button onclick="Invoices.setStatus('paid',this)">Paid</button>
+      </div>
+      <div class="seg" id="invMonthSeg">
+        <button class="active" onclick="Invoices.setMonth('all',this)">All months</button>
+        <button onclick="Invoices.pickMonth(this)">By month</button>
+      </div>
+      <div id="invMonthWrap" style="display:none;align-items:center;gap:6px">
+        <button class="btn ghost sm" style="flex:none" onclick="Invoices.stepMonth(-1)">‹</button>
+        <input type="month" id="invMonth" class="inp" style="width:auto" onchange="Invoices.renderList()">
+        <button class="btn ghost sm" style="flex:none" onclick="Invoices.stepMonth(1)">›</button>
+      </div>
+    </div>
+    <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+      <div class="stat"><div class="lbl">Billed</div><div class="val num" id="invSumBilled">PKR 0</div></div>
+      <div class="stat green"><div class="lbl">Received</div><div class="val num" id="invSumPaid">PKR 0</div></div>
+      <div class="stat amber"><div class="lbl">Outstanding</div><div class="val num" id="invSumDue">PKR 0</div></div>
+    </div>
     <div class="tw"><table>
       <thead><tr><th>Invoice #</th><th>Client</th><th class="hide-sm">Period</th><th>Qty</th><th class="r-money">Amount</th><th>Status</th><th></th></tr></thead>
       <tbody id="invTable"></tbody>
     </table></div>
+    <p class="mini" id="invScopeNote" style="margin-top:8px"></p>
   </div>
 </section>
 
@@ -1152,6 +1174,28 @@ function unpaidTotals(id) {
   let owed = 0, bottles = 0;
   chargeSettlement(id).forEach(ch => { if (ch.unpaid > 0.5) { owed += ch.unpaid; bottles += ch.qty; } });
   return { owed: Math.round(owed), bottles };
+}
+
+// For each payment, which deliveries (dates+qty) it cleared — tagged first, then oldest-open. For the ledger display.
+function paymentClearMap(id) {
+  const c = getClient(id); const map = {}; if (!c) return map;
+  const charges = [];
+  if (num(c.opening) > 0) charges.push({ key: 'opening', date: c.createdAt || '2000-01-01', rem: num(c.opening), qty: 0 });
+  state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id) { let rem = num(row.total) - num(row.received); if (rem < 0) rem = 0; charges.push({ key: row.rid ? 'r:' + row.rid : 'rd' + r.id, date: r.date, rem, qty: num(row.qty) }); } }));
+  state.fillings.forEach(f => { if (f.clientId === id) { let rem = fillTotal(f) - fillRecv(f); if (rem < 0) rem = 0; charges.push({ key: 'f:' + f.id, date: f.date, rem, qty: num(f.qty) }); } });
+  charges.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const byKey = {}; charges.forEach(ch => byKey[ch.key] = ch);
+  const pays = state.payments.filter(p => p.clientId === id).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const add = (pid, ch) => { if (ch.date && ch.date > '2000-01-02') (map[pid] = map[pid] || []).push({ date: ch.date, qty: ch.qty }); };
+  pays.forEach(p => (p.alloc || []).forEach(a => { const ch = byKey[a.key]; if (ch && ch.rem > 0) { const t = Math.min(ch.rem, num(a.amount)); if (t > 0) { ch.rem -= t; add(p.id, ch); } } }));
+  pays.forEach(p => { let amt = num(p.amount) - (p.alloc || []).reduce((s, a) => s + num(a.amount), 0); if (amt <= 0.5) return; for (const ch of charges) { if (amt <= 0.5) break; if (ch.rem > 0.5) { const t = Math.min(ch.rem, amt); ch.rem -= t; amt -= t; add(p.id, ch); } } });
+  return map;
+}
+// Per-month unpaid breakdown for a client: [{m:'YYYY-MM', owed, bottles}] oldest first (only months with unpaid).
+function monthBreakdown(id) {
+  const by = {};
+  chargeSettlement(id).forEach(ch => { if (ch.unpaid > 0.5 && ch.date) { const m = ch.date.slice(0, 7); if (!by[m]) by[m] = { m, owed: 0, bottles: 0 }; by[m].owed += ch.unpaid; by[m].bottles += ch.qty; } });
+  return Object.values(by).sort((a, b) => a.m.localeCompare(b.m)).map(x => ({ m: x.m, owed: Math.round(x.owed), bottles: x.bottles }));
 }
 
 
@@ -1978,6 +2022,7 @@ const Ledger = {
     if (!isMonthly(c)) state.routes.forEach(r => (r.rows || []).forEach(row => { if (row.clientId === id && !row.rid) { row.rid = uid(); bf = true; } }));
     if (bf) save();
     const settle = {};
+    const clearMap = isMonthly(c) ? {} : paymentClearMap(id);
     if (!isMonthly(c)) chargeSettlement(id).forEach(ch => { if (ch.key) settle[ch.key] = ch; });
     const tx = [];
     if (num(c.opening) !== 0) tx.push({ date: c.createdAt || '2000-01-01', kind: 'open', desc: 'Opening balance', charge: num(c.opening), paid: 0 });
@@ -2019,13 +2064,19 @@ const Ledger = {
         tx.slice().reverse().map(t =>
           '<tr><td>' + fmtDate(t.date) + '</td>' +
           '<td>' + (t.kind === 'pay' ? '<span class="bdg paid">✓ payment</span> ' : '') + esc(t.desc) +
+            (t.kind === 'pay' && clearMap[t.payId] && clearMap[t.payId].length ? '<div class="mini" style="color:#0e7c9a;margin-top:3px">→ cleared: ' + clearMap[t.payId].map(x => fmtDate(x.date) + ' (' + x.qty + ' btl)').join(', ') + '</div>' : '') +
             (t.key && settle[t.key] && (settle[t.key].status === 'unpaid' || settle[t.key].status === 'partial') ? (settle[t.key].status === 'partial' ? ' <span class="bdg partial" style="font-size:10px">part-paid</span>' : ' <span class="bdg unpaid" style="font-size:10px">pending</span>') : '') + '</td>' +
           '<td class="r-money num">' + (t.charge ? pkr(t.charge) : '—') + '</td>' +
           '<td class="r-money num money-pos">' + (t.paid ? pkr(t.paid) : '—') + '</td>' +
           '<td class="r-money num ' + (t.run > 0 ? 'money-bal' : 'money-pos') + '"><b>' + pkr(t.run) + '</b></td>' +
           '<td>' + (t.kind === 'pay' ? '<button class="iconbtn del" onclick="Ledger.deletePay(\'' + t.payId + '\')">🗑️</button>' : '') + '</td></tr>'
         ).join('') +
-        '</tbody></table></div><p class="mini" style="margin-top:8px">Newest first. The <b>Balance</b> column shows what was owed right after each entry.</p>'
+        '</tbody></table></div><p class="mini" style="margin-top:8px">Newest first. The <b>Balance</b> column shows what was owed right after each entry.</p>' +
+        '<div class="flexspace" style="margin-top:12px;padding:12px 14px;background:#f7f9fb;border-radius:10px;flex-wrap:wrap;gap:8px">' +
+          '<span>Total billed: <b>' + pkr(tx.reduce((s, t) => s + t.charge, 0)) + '</b></span>' +
+          '<span>Total received: <b class="money-pos">' + pkr(tx.reduce((s, t) => s + t.paid, 0)) + '</b></span>' +
+          '<span>Still pending: <b class="money-bal">' + pkr(bal) + '</b></span>' +
+        '</div>'
       : '<div class="empty"><span class="ic">📒</span>No activity yet</div>';
 
     $('ledgerBody').innerHTML = head +
@@ -2375,15 +2426,30 @@ const Invoices = {
       trackDelete('invoices', id); state.invoices = state.invoices.filter(x => x.id !== id); save(); this.renderList(); toast('Invoice deleted');
     });
   },
+  _status: 'all', _month: 'all',
+  setStatus(s, btn) { this._status = s; if (btn && btn.parentElement) [...btn.parentElement.children].forEach(b => b.classList.toggle('active', b === btn)); this.renderList(); },
+  setMonth(m, btn) { this._month = m; if (btn && btn.parentElement) [...btn.parentElement.children].forEach(b => b.classList.toggle('active', b === btn)); $('invMonthWrap').style.display = 'none'; this.renderList(); },
+  pickMonth(btn) { if (btn && btn.parentElement) [...btn.parentElement.children].forEach(b => b.classList.toggle('active', b === btn)); if (!$('invMonth').value) $('invMonth').value = thisMonth(); $('invMonthWrap').style.display = 'flex'; this.renderList(); },
+  stepMonth(n) { const cur = $('invMonth').value || thisMonth(); const [y, mo] = cur.split('-').map(Number); const d = new Date(y, mo - 1 + n, 1); $('invMonth').value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); this.renderList(); },
   renderList() {
     const q = ($('invSearch').value || '').toLowerCase();
+    const byMonth = $('invMonthWrap') && $('invMonthWrap').style.display !== 'none' && $('invMonth') && $('invMonth').value;
+    const m = byMonth ? $('invMonth').value : null;
     let list = state.invoices.slice().sort((a, b) => (b.issueDate || '').localeCompare(a.issueDate || ''));
     if (q) list = list.filter(i => (i.number + ' ' + i.clientName).toLowerCase().includes(q));
+    if (m) list = list.filter(i => (i.from || '').slice(0, 7) <= m && (i.to || '').slice(0, 7) >= m);
+    // compute due for each, then apply status filter + totals
+    let billed = 0, paid = 0, dueSum = 0;
+    const rowsData = list.map(i => { const B = this.invoiceBalance(i); billed += B.periodTotal; paid += (B.payable + B.periodCash); dueSum += Math.max(0, B.due); return { i, B }; });
+    let shown = rowsData;
+    if (this._status === 'unpaid') shown = rowsData.filter(x => x.B.due > 0);
+    else if (this._status === 'paid') shown = rowsData.filter(x => x.B.due <= 0);
+    if ($('invSumBilled')) { $('invSumBilled').textContent = pkr(billed); $('invSumPaid').textContent = pkr(paid); $('invSumDue').textContent = pkr(dueSum); }
+    if ($('invScopeNote')) $('invScopeNote').innerHTML = (m ? 'Invoices covering <b>' + monLabel(m) + '</b>. ' : '') + shown.length + ' invoice(s) shown. Totals above are for this filter.';
     const body = $('invTable');
-    if (!list.length) { body.innerHTML = '<tr><td colspan="7" class="empty"><span class="ic">🧾</span>No invoices yet</td></tr>'; return; }
-    body.innerHTML = list.map(i => {
-      const due = this.invoiceBalance(i).due;
-      const status = due <= 0 ? '<span class="bdg paid">Paid</span>' : '<span class="bdg unpaid">' + pkr(due) + ' due</span>';
+    if (!shown.length) { body.innerHTML = '<tr><td colspan="7" class="empty"><span class="ic">🧾</span>No invoices match this filter</td></tr>'; return; }
+    body.innerHTML = shown.map(({ i, B }) => {
+      const status = B.due <= 0 ? '<span class="bdg paid">Paid</span>' : '<span class="bdg unpaid">' + pkr(B.due) + ' due</span>';
       return '<tr><td><b>' + esc(i.number) + '</b></td><td>' + esc(i.clientName) + '</td>' +
         '<td class="hide-sm mini">' + fmtDate(i.from) + ' – ' + fmtDate(i.to) + '</td>' +
         '<td>' + i.qty + '</td><td class="r-money num">' + pkr(i.amount) + '</td>' +
@@ -3022,11 +3088,20 @@ const Collections = {
   },
   remind(id) {
     const c = getClient(id); if (!c) return;
-    const bal = owedNow(id);
-    const bottles = unpaidTotals(id).bottles;
+    const byMonth = $('agMonthWrap') && $('agMonthWrap').style.display !== 'none' && $('agMonth') && $('agMonth').value;
+    const m = byMonth ? $('agMonth').value : null;
     this._remPhone = this.normPhone(c.phone);
+    let bal, bottles, scopeTxt = '', breakdown = '';
+    if (m) {
+      const mo = monthOwe(id, m); bal = mo.owed; bottles = mo.bottles;
+      scopeTxt = ' ' + monLabel(m) + ' ka';
+    } else {
+      bal = owedNow(id); bottles = unpaidTotals(id).bottles;
+      const mb = monthBreakdown(id);
+      if (mb.length > 1) breakdown = '\n' + mb.map(x => '• ' + monLabel(x.m) + ': PKR ' + x.owed.toLocaleString() + ' (' + x.bottles + ' bottles)').join('\n') + '\n';
+    }
     const btlTxt = bottles > 0 ? ' (' + bottles + ' bottle' + (bottles === 1 ? '' : 's') + ')' : '';
-    const msg = 'Assalam o Alaikum ' + (c.name || '') + '! Aqua Pack ki taraf se yaad-dahani: aap ka balance PKR ' + Math.round(bal).toLocaleString() + btlTxt + ' hai. Meharbani farma kar payment kar dein. Shukria!';
+    const msg = 'Assalam o Alaikum ' + (c.name || '') + '! Aqua Pack ki taraf se yaad-dahani: aap ka' + scopeTxt + ' balance PKR ' + Math.round(bal).toLocaleString() + btlTxt + ' hai.' + breakdown + ' Meharbani farma kar payment kar dein. Shukria!';
     $('remindText').value = msg;
     $('remindModal').classList.add('show');
   },
