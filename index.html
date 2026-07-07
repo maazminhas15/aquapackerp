@@ -197,7 +197,7 @@ tbody tr:hover{background:var(--surface-2)}
   <div class="top-in">
     <div class="brand">
       <div class="logo">💧</div>
-      <div><b>AQUA PACK</b><small>Water ERP · v12</small></div>
+      <div><b>AQUA PACK</b><small>Water ERP · v13</small></div>
     </div>
     <div class="top-right">
       <span class="savechip" id="cloudChip" onclick="switchView('data')" style="cursor:pointer"><span class="dot" id="cloudDot" style="background:var(--ink-faint)"></span><span id="cloudState">Local only</span></span>
@@ -2101,6 +2101,15 @@ const Ledger = {
         lines.push('<tr><td>' + fmtDate(it.date) + '</td><td>' + esc(d) + '</td><td class="r-money num">' + pkr(it.total) + '</td><td></td></tr>');
       });
       r.paidBy.forEach(p => lines.push('<tr><td>' + fmtDate(p.date) + '</td><td><span class="bdg paid">✓ payment</span> Payment applied' + (p.method ? ' (' + esc(p.method) + ')' : '') + '</td><td class="r-money num money-pos">' + pkr(p.amount) + '</td><td>' + (p.payId ? '<button class="iconbtn del" title="Delete whole payment" onclick="Ledger.deletePay(\'' + p.payId + '\')">🗑️</button>' : '') + '</td></tr>'));
+      // which of this bill's deliveries the payment(s) cleared (oldest first)
+      if (iv && r.allocated > 0.5) {
+        let cov = r.allocated; const covered = [];
+        (iv.items || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(it => {
+          const owe = num(it.total) - num(it.received); if (owe <= 0.5 || cov <= 0.5) return;
+          const take = Math.min(owe, cov); cov -= take; covered.push(fmtDate(it.date) + ' (' + it.qty + ' btl)' + (take < owe - 0.5 ? ' part' : ''));
+        });
+        if (covered.length) lines.push('<tr><td></td><td colspan="3" class="mini" style="color:#0e7c9a;padding-bottom:8px">→ this payment cleared: ' + covered.join(', ') + '</td></tr>');
+      }
       const head = iv
         ? '<b style="font-size:15px">' + esc(iv.number) + '</b> <span class="mini">' + fmtDate(iv.from) + ' – ' + fmtDate(iv.to) + '</span>'
         : '<b style="font-size:15px">Opening balance</b>';
