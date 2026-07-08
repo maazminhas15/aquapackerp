@@ -197,7 +197,7 @@ tbody tr:hover{background:var(--surface-2)}
   <div class="top-in">
     <div class="brand">
       <div class="logo">💧</div>
-      <div><b>AQUA PACK</b><small>Water ERP · v14</small></div>
+      <div><b>AQUA PACK</b><small>Water ERP · v16</small></div>
     </div>
     <div class="top-right">
       <span class="savechip" id="cloudChip" onclick="switchView('data')" style="cursor:pointer"><span class="dot" id="cloudDot" style="background:var(--ink-faint)"></span><span id="cloudState">Local only</span></span>
@@ -865,6 +865,14 @@ tbody tr:hover{background:var(--surface-2)}
 </div>
 
 <!-- ===== Payment modal ===== -->
+<div class="overlay" id="peekModal">
+  <div class="modal" style="max-width:820px;width:94%">
+    <div class="modal-h"><h3 id="peekTitle">Ledger</h3><button class="x" onclick="Ledger.closePeek()">×</button></div>
+    <div class="modal-b" id="peekBody" style="max-height:72vh;overflow:auto"></div>
+    <div class="modal-f"><button class="btn ghost" onclick="Ledger.closePeek()">Close</button><button class="btn pri" id="peekFullBtn" onclick="Ledger.openFromPeek()">Open full ledger →</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="payModal">
   <div class="modal">
     <div class="modal-h"><h3>Record payment</h3><button class="x" onclick="Ledger.closePay()">×</button></div>
@@ -1703,7 +1711,7 @@ const Clients = {
         '<td class="hide-sm num">' + pkr(c.rate) + '</td>' +
         '<td class="r-money">' + balCell + '</td>' +
         '<td><div class="row-actions">' +
-          '<button class="iconbtn" title="Ledger" onclick="Ledger.open(\'' + c.id + '\')">📒</button>' +
+          '<button class="iconbtn" title="Ledger" onclick="Ledger.peek(\'' + c.id + '\')">📒</button>' +
           '<button class="iconbtn" title="Edit" onclick="Clients.edit(\'' + c.id + '\')">✏️</button>' +
           '<button class="iconbtn del" title="Delete" onclick="Clients.remove(\'' + c.id + '\')">🗑️</button>' +
         '</div></td></tr>';
@@ -1930,6 +1938,12 @@ const RouteSheet = {
         save(); this.renderArchive(); toast('Route sheet + its collections deleted');
       });
   },
+  toggleMonth(m) {
+    this._openM = this._openM || {}; this._openM[m] = !this._openM[m];
+    const key = m.replace(/-/g, '');
+    document.querySelectorAll('.rm' + key).forEach(el => el.style.display = this._openM[m] ? '' : 'none');
+    const chev = document.getElementById('chev' + key); if (chev) chev.textContent = this._openM[m] ? '▾' : '▸';
+  },
   renderArchive() {
     const q = ($('rArchSearch').value || '').toLowerCase();
     const from = $('rArchFrom').value, to = $('rArchTo').value;
@@ -1939,41 +1953,48 @@ const RouteSheet = {
     if (to) list = list.filter(r => r.date <= to);
     const body = $('routeArchive');
     if (!list.length) { body.innerHTML = '<tr><td colspan="10" class="empty"><span class="ic">🗂️</span>No saved route sheets</td></tr>'; return; }
-    let gQty = 0, gTotal = 0, gCash = 0, gExp = 0, gBal = 0, gClients = 0;
-    const rowsHtml = list.map(r => {
-      const total = (r.rows || []).reduce((s, x) => s + num(x.total), 0);
-      const cash = (r.rows || []).reduce((s, x) => s + num(x.received) + num(x.collected), 0);
-      const qty = (r.rows || []).reduce((s, x) => s + num(x.qty), 0);
-      const exp = num(r.fuel) + num(r.food) + num(r.other);
-      const bal = (r.rows || []).reduce((s, x) => s + num(x.balance), 0);
-      gQty += qty; gTotal += total; gCash += cash; gExp += exp; gBal += bal; gClients += (r.rows || []).length;
-      return '<tr>' +
-        '<td><b>' + fmtDate(r.date) + '</b></td>' +
-        '<td class="hide-sm">' + esc(r.driver || '—') + (r.vehicle ? '<div class="mini">' + esc(r.vehicle) + '</div>' : '') + '</td>' +
-        '<td>' + (r.rows || []).length + '</td>' +
-        '<td>' + qty + '</td>' +
-        '<td class="r-money num">' + pkr(total) + '</td>' +
-        '<td class="r-money num money-pos">' + pkr(cash) + '</td>' +
-        '<td class="r-money num money-neg">' + pkr(exp) + '</td>' +
-        '<td class="r-money num">' + pkr(cash - exp) + '</td>' +
-        '<td class="r-money num money-bal">' + pkr(bal) + '</td>' +
-        '<td><div class="row-actions">' +
-          '<button class="iconbtn" title="Print" onclick="RouteSheet.print(\'' + r.id + '\')">🖨️</button>' +
-          '<button class="iconbtn" title="Edit" onclick="RouteSheet.loadForEdit(\'' + r.id + '\')">✏️</button>' +
-          '<button class="iconbtn del" title="Delete" onclick="RouteSheet.remove(\'' + r.id + '\')">🗑️</button>' +
-        '</div></td></tr>';
-    }).join('');
-    const totalsRow = '<tr style="background:var(--surface-2);font-weight:700;border-top:2px solid var(--ink-faint)">' +
-      '<td><b>TOTAL</b></td><td class="hide-sm"></td>' +
-      '<td><b>' + gClients + '</b></td>' +
-      '<td><b>' + gQty + '</b></td>' +
-      '<td class="r-money num"><b>' + pkr(gTotal) + '</b></td>' +
-      '<td class="r-money num money-pos"><b>' + pkr(gCash) + '</b></td>' +
-      '<td class="r-money num money-neg"><b>' + pkr(gExp) + '</b></td>' +
-      '<td class="r-money num"><b>' + pkr(gCash - gExp) + '</b></td>' +
-      '<td class="r-money num money-bal"><b>' + pkr(gBal) + '</b></td>' +
-      '<td></td></tr>';
-    body.innerHTML = rowsHtml + totalsRow;
+    // group by month (newest first) — collapsible sections like "People also ask"
+    const groups = {}; list.forEach(r => { const m = (r.date || '').slice(0, 7); (groups[m] = groups[m] || []).push(r); });
+    const months = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+    this._openM = this._openM || {};
+    if (months.length && !(months[0] in this._openM)) this._openM[months[0]] = true; // newest month open by default
+    const rowVals = r => { const rows = r.rows || []; return { total: rows.reduce((s, x) => s + num(x.total), 0), cash: rows.reduce((s, x) => s + num(x.received) + num(x.collected), 0), qty: rows.reduce((s, x) => s + num(x.qty), 0), exp: num(r.fuel) + num(r.food) + num(r.other), bal: rows.reduce((s, x) => s + num(x.balance), 0), n: rows.length }; };
+    let GQ = 0, GT = 0, GC = 0, GE = 0, GB = 0, GCl = 0, html = '';
+    months.forEach(m => {
+      const key = m.replace(/-/g, ''); const rs = groups[m]; const open = !!this._openM[m];
+      let mQ = 0, mT = 0, mC = 0, mE = 0, mB = 0;
+      const rowLines = rs.map(r => {
+        const v = rowVals(r); mQ += v.qty; mT += v.total; mC += v.cash; mE += v.exp; mB += v.bal;
+        GQ += v.qty; GT += v.total; GC += v.cash; GE += v.exp; GB += v.bal; GCl += v.n;
+        return '<tr class="rm' + key + '" style="display:' + (open ? '' : 'none') + '">' +
+          '<td><b>' + fmtDate(r.date) + '</b></td>' +
+          '<td class="hide-sm">' + esc(r.driver || '—') + (r.vehicle ? '<div class="mini">' + esc(r.vehicle) + '</div>' : '') + '</td>' +
+          '<td>' + v.n + '</td><td>' + v.qty + '</td>' +
+          '<td class="r-money num">' + pkr(v.total) + '</td>' +
+          '<td class="r-money num money-pos">' + pkr(v.cash) + '</td>' +
+          '<td class="r-money num money-neg">' + pkr(v.exp) + '</td>' +
+          '<td class="r-money num">' + pkr(v.cash - v.exp) + '</td>' +
+          '<td class="r-money num money-bal">' + pkr(v.bal) + '</td>' +
+          '<td><div class="row-actions">' +
+            '<button class="iconbtn" title="Print" onclick="RouteSheet.print(\'' + r.id + '\')">🖨️</button>' +
+            '<button class="iconbtn" title="Edit" onclick="RouteSheet.loadForEdit(\'' + r.id + '\')">✏️</button>' +
+            '<button class="iconbtn del" title="Delete" onclick="RouteSheet.remove(\'' + r.id + '\')">🗑️</button>' +
+          '</div></td></tr>';
+      }).join('');
+      html += '<tr class="month-head" style="cursor:pointer;background:#eef4fb" onclick="RouteSheet.toggleMonth(\'' + m + '\')">' +
+        '<td colspan="4"><b style="font-size:14px"><span id="chev' + key + '">' + (open ? '▾' : '▸') + '</span> ' + monLabel(m) + '</b> <span class="mini">· ' + rs.length + ' sheet(s)</span></td>' +
+        '<td class="r-money num"><b>' + pkr(mT) + '</b></td>' +
+        '<td class="r-money num money-pos"><b>' + pkr(mC) + '</b></td>' +
+        '<td class="r-money num money-neg"><b>' + pkr(mE) + '</b></td>' +
+        '<td class="r-money num"><b>' + pkr(mC - mE) + '</b></td>' +
+        '<td class="r-money num money-bal"><b>' + pkr(mB) + '</b></td><td></td></tr>' + rowLines;
+    });
+    html += '<tr style="background:var(--surface-2);font-weight:800;border-top:2px solid var(--ink-faint)">' +
+      '<td colspan="2"><b>ALL MONTHS</b></td><td><b>' + GCl + '</b></td><td><b>' + GQ + '</b></td>' +
+      '<td class="r-money num"><b>' + pkr(GT) + '</b></td><td class="r-money num money-pos"><b>' + pkr(GC) + '</b></td>' +
+      '<td class="r-money num money-neg"><b>' + pkr(GE) + '</b></td><td class="r-money num"><b>' + pkr(GC - GE) + '</b></td>' +
+      '<td class="r-money num money-bal"><b>' + pkr(GB) + '</b></td><td></td></tr>';
+    body.innerHTML = html;
   },
   print(id) {
     const r = state.routes.find(x => x.id === id); if (!r) return;
@@ -2142,6 +2163,21 @@ const Ledger = {
     return '<div class="card"><div class="card-h"><h3><span class="ic">📑</span> Invoices &amp; billing</h3><span class="pill">' + B.receivables.filter(r => r.inv).length + ' invoice(s)</span></div>' +
       '<p class="mini" style="margin-bottom:12px">Each invoice settles on its own. Payments clear the <b>oldest invoice first</b>. Unpaid older bills show as <b>previous balance</b> on the next one.</p>' + cards + '</div>' + unbilledCard + adv;
   },
+  // quick-view popup: shows the client's ledger on top of the current page, without leaving it
+  peek(id) {
+    const c = getClient(id); if (!c) return;
+    const active = document.querySelector('.view.active');
+    const prevId = active ? active.id : null;
+    this.open(id);                          // renders the ledger body
+    const html = $('ledgerBody').innerHTML; // grab it
+    if (prevId && prevId !== 'ledger') doSwitch(prevId);  // return to where we were (synchronous — no flicker)
+    this._peekId = id;
+    $('peekTitle').textContent = (c.name || 'Client') + ' — ledger';
+    $('peekBody').innerHTML = html;
+    $('peekModal').classList.add('show');
+  },
+  closePeek() { $('peekModal').classList.remove('show'); },
+  openFromPeek() { this.closePeek(); if (this._peekId) this.open(this._peekId); },
   openPay(id) {
     const c = getClient(id); if (!c) return;
     $('payClientId').value = id;
@@ -3097,7 +3133,7 @@ const DayBook = {
       const method = x.method || 'Cash';
       const mb = method.toLowerCase().includes('cash') ? '<span class="bdg paid">💵 ' + esc(method) + '</span>' : '<span class="bdg monthly">🏦 ' + esc(method) + '</span>';
       const noteTxt = x.kind === 'delivery' ? esc(x.note) : esc(x.note || '—');
-      return '<tr><td><b>' + esc(name) + '</b></td><td class="hide-sm mini">' + esc((x.c && x.c.zone) || '—') + '</td><td>' + mb + '</td><td class="hide-sm mini">' + noteTxt + '</td><td class="r-money num money-pos"><b>' + pkr(x.amount) + '</b></td><td>' + (x.c ? '<button class="iconbtn" title="Open ledger" onclick="Ledger.open(\'' + x.c.id + '\')">📒</button>' : '') + '</td></tr>';
+      return '<tr><td><b>' + esc(name) + '</b></td><td class="hide-sm mini">' + esc((x.c && x.c.zone) || '—') + '</td><td>' + mb + '</td><td class="hide-sm mini">' + noteTxt + '</td><td class="r-money num money-pos"><b>' + pkr(x.amount) + '</b></td><td>' + (x.c ? '<button class="iconbtn" title="Open ledger" onclick="Ledger.peek(\'' + x.c.id + '\')">📒</button>' : '') + '</td></tr>';
     }).join('');
     $('dbCount').textContent = rows.length + ' collection(s) on this day — includes cash taken at delivery.';
   },
@@ -3155,7 +3191,7 @@ const Collections = {
       const accrue = (x.monthly && x.accruing > 0) ? '<div class="mini" style="color:#999">of which ' + pkr(x.accruing) + ' not yet invoiced</div>' : '';
       return '<tr><td><b>' + esc(x.c.name) + '</b>' + (x.monthly ? ' <span class="bdg monthly" style="font-size:10px">monthly</span>' : '') + accrue + '</td><td class="hide-sm mini">' + esc(x.c.zone || '—') + '</td>' +
         '<td class="r-money money-bal">' + pkr(x.bal) + '</td><td>' + badge + '</td>' +
-        '<td><div class="row-actions"><button class="iconbtn" title="Ledger" onclick="Ledger.open(\'' + x.c.id + '\')">📒</button>' +
+        '<td><div class="row-actions"><button class="iconbtn" title="Ledger" onclick="Ledger.peek(\'' + x.c.id + '\')">📒</button>' +
         '<button class="btn green sm" style="flex:none" onclick="Collections.remind(\'' + x.c.id + '\')">💬 Remind</button></div></td></tr>';
     }).join('');
   },
