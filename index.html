@@ -197,7 +197,7 @@ tbody tr:hover{background:var(--surface-2)}
   <div class="top-in">
     <div class="brand">
       <div class="logo">💧</div>
-      <div><b>AQUA PACK</b><small>Water ERP · v16</small></div>
+      <div><b>AQUA PACK</b><small>Water ERP · v17</small></div>
     </div>
     <div class="top-right">
       <span class="savechip" id="cloudChip" onclick="switchView('data')" style="cursor:pointer"><span class="dot" id="cloudDot" style="background:var(--ink-faint)"></span><span id="cloudState">Local only</span></span>
@@ -974,6 +974,7 @@ let state = {
 };
 
 function save() {
+  clearMemo();
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
     const el = document.getElementById('saveState');
@@ -1046,7 +1047,12 @@ function fillTotal(f) { return num(f.total != null ? f.total : f.amount); }
 function fillRecv(f) { return num(f.received != null ? f.received : fillTotal(f)); }
 function fillBal(f) { return fillTotal(f) - fillRecv(f); }
 
+/* ---- performance: cache heavy per-client calcs; cleared whenever data changes ---- */
+let _memo = { cb: {}, lup: {}, mb: {}, cs: {} };
+function clearMemo() { _memo = { cb: {}, lup: {}, mb: {}, cs: {} }; }
+
 function clientBalance(id) {
+  if (id in _memo.cb) return _memo.cb[id];
   const c = getClient(id); if (!c) return 0;
   let bal = num(c.opening);
   state.routes.forEach(r => (r.rows || []).forEach(row => {
@@ -1054,7 +1060,7 @@ function clientBalance(id) {
   }));
   state.fillings.forEach(f => { if (f.clientId === id) bal += fillBal(f); });
   state.payments.forEach(p => { if (p.clientId === id) bal -= num(p.amount); });
-  return Math.round(bal);
+  return _memo.cb[id] = Math.round(bal);
 }
 // running balance from everything strictly BEFORE a date (for invoice "previous balance")
 function clientBalanceBefore(id, date) {
@@ -1066,6 +1072,7 @@ function clientBalanceBefore(id, date) {
   return Math.round(bal);
 }
 function lastUnpaidDate(id) {
+  if (id in _memo.lup) return _memo.lup[id];
   // earliest delivery date that contributed to an unpaid balance
   let earliest = null;
   state.routes.forEach(r => (r.rows || []).forEach(row => {
@@ -1073,7 +1080,7 @@ function lastUnpaidDate(id) {
       if (!earliest || r.date < earliest) earliest = r.date;
     }
   }));
-  return earliest;
+  return _memo.lup[id] = earliest;
 }
 
 /* ============ MONTHLY BILLING ENGINE (period buckets + oldest-first payment allocation) ============ */
@@ -1103,6 +1110,7 @@ function srcKeyOf(it) { return it && it.src ? (it.src.type === 'route' ? 'r:' + 
 // INVOICE-DRIVEN book: receivables = opening + issued invoices; payments clear oldest first;
 // deliveries not on any invoice are "unbilled" and roll onto the next invoice.
 function monthlyBook(id) {
+  if (id in _memo.mb) return _memo.mb[id];
   const c = getClient(id);
   const empty = { receivables: [], invoices: [], unbilled: [], overdue: 0, accruing: 0, advance: 0, overdueSince: null };
   if (!c) return empty;
@@ -1146,7 +1154,7 @@ function monthlyBook(id) {
   const overdue = recv.reduce((s, r) => s + Math.max(0, r.unpaid), 0);
   const firstUnpaid = recv.find(r => r.unpaid > 0);
   const overdueSince = firstUnpaid ? (firstUnpaid.inv ? (firstUnpaid.inv.issueDate || firstUnpaid.inv.from) : firstUnpaid.date) : null;
-  return { receivables: recv, invoices: invs, unbilled, overdue, accruing, advance, overdueSince };
+  return _memo.mb[id] = { receivables: recv, invoices: invs, unbilled, overdue, accruing, advance, overdueSince };
 }
 // SINGLE source of truth for "what a client owes" — the true total (delivered − paid), same on every screen.
 // (For monthly clients you can still see the overdue-vs-unbilled split in the Ledger / Collections note.)
@@ -1155,6 +1163,7 @@ function owedNow(id) { return Math.max(0, clientBalance(id)); }
 // Per-delivery settlement. Payments TAGGED to specific deliveries (p.alloc) settle those first;
 // whatever is left over clears the remaining charges OLDEST-first. Returns each charge with paid/unpaid.
 function chargeSettlement(id) {
+  if (id in _memo.cs) return _memo.cs[id];
   const c = getClient(id); if (!c) return [];
   const charges = [];
   if (num(c.opening) > 0) charges.push({ key: 'opening', date: c.createdAt || '2000-01-01', owed: num(c.opening), qty: 0, kind: 'open' });
@@ -1177,7 +1186,7 @@ function chargeSettlement(id) {
   Object.keys(explicit).forEach(k => { if (explicit[k] > 0) pool += explicit[k]; }); // over-tagged spills back to pool
   // remaining pool clears the rest, oldest first
   charges.forEach(ch => { let rem = ch.owed - ch.paid; if (pool > 0 && rem > 0) { const t = Math.min(pool, rem); pool -= t; ch.paid += t; } ch.unpaid = Math.round(ch.owed - ch.paid); ch.status = ch.owed <= 0 ? 'none' : (ch.unpaid <= 0 ? 'paid' : (ch.paid > 0 ? 'partial' : 'unpaid')); });
-  return charges;
+  return _memo.cs[id] = charges;
 }
 
 // How much a client still owes FROM a specific calendar month (m='YYYY-MM'), + bottles on those unpaid charges.
@@ -3013,6 +3022,7 @@ const Cloud = {
       });
     } catch (e) {}
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    clearMemo();
     this.repaint();
   },
 
