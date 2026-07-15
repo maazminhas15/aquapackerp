@@ -1514,11 +1514,14 @@ const Dashboard = {
       const mo = monthOwe(c.id, m);
       if (mo.owed > 0) defRows.push({ c, bal: mo.owed, bottles: mo.bottles, days: mo.since ? daysSince(mo.since) : 0 });
     });
-    defRows.sort((a, b) => b.bal - a.bal);
+   defRows.sort((a, b) => b.bal - a.bal);
     const totalOut = defRows.reduce((s, x) => s + x.bal, 0);
     const totalDefBottles = defRows.reduce((s, x) => s + x.bottles, 0);
     // all-time outstanding (for context only)
     const allOut = state.clients.reduce((s, c) => s + (owedNow(c.id)), 0);
+    // accrual-basis: how much of THIS month's billing has been collected, no matter WHEN the payment came in
+    const billedCollected = Math.round(totalRev - totalOut);
+    const billedCollectRate = totalRev ? Math.round(billedCollected / totalRev * 100) : 0;
 
     // --- derived stats ---
     const activeDays = Object.keys(deliveryDays).length;
@@ -1593,15 +1596,16 @@ const Dashboard = {
         '</tbody></table>' +
       '<div style="font-size:11px;color:#64748b;margin-bottom:16px">Credit given this month (added to clients\u2019 outstanding, not yet received): <b style="color:#b45309">' + pkr(creditGiven) + '</b></div>' +
 
-      // collections this month
-      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:6px">Collections \u2014 ' + monthLabel + '</div>' +
+     // collections this month
+      '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:6px">' + monthLabel + ' Billing \u2014 Collected vs Pending</div>' +
+      '<div style="font-size:11px;color:#64748b;margin-bottom:8px">This is the true status of ' + monthLabel + '\u2019s bills \u2014 counted here even if the payment actually arrived in a later month.</div>' +
       '<div style="display:flex;gap:10px;margin-bottom:6px">' +
-        statBox('Money collected', pkr(collected), '#16a34a') +
-        statBox('Billed this month', pkr(totalRev), '#0e7c9a') +
-        statBox('Unpaid from ' + monthLabel, pkr(totalOut), '#b45309') +
+        statBox('Billed in ' + monthLabel, pkr(totalRev), '#0e7c9a') +
+        statBox('Collected (' + billedCollectRate + '%)', pkr(billedCollected), '#16a34a') +
+        statBox('Still pending', pkr(totalOut), '#b45309') +
       '</div>' +
-      '<div style="font-size:11px;color:#64748b;margin-bottom:16px">Received <b>' + collectRate + '%</b> of what was billed in ' + monthLabel + '. Total still owed across <b>all</b> months (every client): <b style="color:#b45309">' + pkr(allOut) + '</b>. The month-wise list of who still owes is at the bottom.</div>' +
-
+      '<div style="font-size:11px;color:#64748b;margin-bottom:6px">Total still owed across <b>all</b> months (every client, not just ' + monthLabel + '): <b style="color:#b45309">' + pkr(allOut) + '</b>. The list of who still owes from ' + monthLabel + ' is at the bottom.</div>' +
+      '<div style="font-size:11px;color:#94a3b8;margin-bottom:16px">(For reference: cash that physically landed in your hand <i>during</i> ' + monthLabel + ' \u2014 from any bill, old or new \u2014 was <b>' + pkr(collected) + '</b>. That figure is for reconciling your pocket, see Cash Position above, not for judging ' + monthLabel + '\u2019s bills.)</div>' +
       // expenses
       '<div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#0e7c9a;margin-bottom:6px">Expenses</div>' +
       '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:16px">' +
